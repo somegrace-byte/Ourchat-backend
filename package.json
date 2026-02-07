@@ -1,0 +1,15 @@
+{
+  "name": "ourchat-backend",
+  "version": "1.0.0",
+  "description": "WebSocket server for OurChat app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.13.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
+  }
+}
