@@ -11,7 +11,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Initialize SQLite DB
+// Initialize SQLite database
 const dbPath = path.join(__dirname, 'messages.db');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error('Error opening DB:', err);
@@ -31,12 +31,17 @@ db.run(`
 app.get('/messages', (req, res) => {
   db.all('SELECT * FROM messages ORDER BY rowid ASC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    const messages = rows.map(r => ({ messageId: r.id, text: r.text, type: 'message', userID: r.userID }));
+    const messages = rows.map(r => ({
+      messageId: r.id,
+      text: r.text,
+      type: 'message',
+      userID: r.userID
+    }));
     res.json(messages);
   });
 });
 
-// HTTP endpoint to send a message (optional, for testing)
+// Optional HTTP endpoint to send a message (for testing)
 app.post('/send', (req, res) => {
   const { messageId, text, userID } = req.body;
   if (!messageId || !text || !userID) {
@@ -47,8 +52,9 @@ app.post('/send', (req, res) => {
   stmt.run(messageId, text, userID, (err) => {
     if (err) return res.status(500).json({ error: err.message });
 
-    // Broadcast to WebSocket clients
     const msg = { messageId, text, type: 'message', userID };
+    
+    // Broadcast to all WebSocket clients
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(msg));
@@ -75,11 +81,17 @@ wss.on('connection', (ws) => {
   db.all('SELECT * FROM messages ORDER BY rowid ASC', [], (err, rows) => {
     if (!err) {
       rows.forEach(r => {
-        ws.send(JSON.stringify({ messageId: r.id, text: r.text, type: 'message', userID: r.userID }));
+        ws.send(JSON.stringify({
+          messageId: r.id,
+          text: r.text,
+          type: 'message',
+          userID: r.userID
+        }));
       });
     }
   });
 
+  // Receive messages from clients
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data);
@@ -89,7 +101,7 @@ wss.on('connection', (ws) => {
       stmt.run(msg.messageId, msg.text, msg.userID, (err) => {
         if (err) return console.error('DB insert error:', err);
 
-        // Broadcast to all WebSocket clients
+        // Broadcast to all connected clients
         wss.clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
@@ -105,21 +117,6 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'sent', messageId: msg.messageId }));
       });
       stmt.finalize();
-    } catch (e) {
-      console.error('Error parsing message:', e);
-    }
-  });
-
-  ws.on('close', () => {
-    console.log('Client disconnected');
-  });
-});        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ messageId: msg.messageId, text: msg.text, type: 'message' }));
-        }
-      });
-
-      // Send ACK to sender
-      ws.send(JSON.stringify({ type: 'sent', messageId: msg.messageId }));
     } catch (e) {
       console.error('Error parsing message:', e);
     }
