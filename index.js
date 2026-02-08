@@ -41,7 +41,7 @@ app.get('/messages', (req, res) => {
   });
 });
 
-// Optional HTTP endpoint to send a message (for testing)
+// HTTP endpoint to send a message (optional)
 app.post('/send', (req, res) => {
   const { messageId, text, userID } = req.body;
   if (!messageId || !text || !userID) {
@@ -54,7 +54,6 @@ app.post('/send', (req, res) => {
 
     const msg = { messageId, text, type: 'message', userID };
     
-    // Broadcast to all WebSocket clients
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(msg));
@@ -101,7 +100,6 @@ wss.on('connection', (ws) => {
       stmt.run(msg.messageId, msg.text, msg.userID, (err) => {
         if (err) return console.error('DB insert error:', err);
 
-        // Broadcast to all connected clients
         wss.clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
@@ -113,7 +111,6 @@ wss.on('connection', (ws) => {
           }
         });
 
-        // Send ACK to sender
         ws.send(JSON.stringify({ type: 'sent', messageId: msg.messageId }));
       });
       stmt.finalize();
