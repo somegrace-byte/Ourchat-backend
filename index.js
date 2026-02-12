@@ -2,8 +2,8 @@ const WebSocket = require('ws');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+
+const pool = require("./db"); // PostgreSQL connection
 
 const PORT = process.env.PORT || 10000;
 const app = express();
@@ -11,111 +11,157 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Initialize SQLite database
-const dbPath = path.join(__dirname, 'messages.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error('Error opening DB:', err);
-  else console.log('SQLite DB connected at', dbPath);
+// ============================
+// SETUP ROUTE TO CREATE TABLES
+// ============================
+app.get("/setup", async (req, res) => {
+  try {
+    // Users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        profile_picture TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        sender_id INT REFERENCES users(id),
+        receiver_id INT REFERENCES users(id),
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    res.send("Tables created!");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error creating tables");
+  }
 });
 
-// Create messages table if not exists
-db.run(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    text TEXT NOT NULL,
-    userID TEXT NOT NULL
-  )
-`);
+// ============================
+// TEST DATABASE CONNECTION
+// ============================
+app.get("/testdb", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+    res.send(`Database connected! Time: ${result.rows[0].now}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Database connection failed");
+  }
+});
 
-// HTTP endpoint to fetch all messages
-app.get('/messages', (req, res) => {
-  db.all('SELECT * FROM messages ORDER BY rowid ASC', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const messages = rows.map(r => ({
+// ============================
+// HTTP ENDPOINTS
+// ============================
+
+// Fetch all messages
+app.get('/messages', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM messages ORDER BY created_at ASC");
+    const messages = result.rows.map(r => ({
       messageId: r.id,
       text: r.text,
       type: 'message',
-      userID: r.userID
+      senderId: r.sender_id,
+      receiverId: r.receiver_id
     }));
     res.json(messages);
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// HTTP endpoint to send a message (optional)
-app.post('/send', (req, res) => {
-  const { messageId, text, userID } = req.body;
-  if (!messageId || !text || !userID) {
-    return res.status(400).json({ error: 'Invalid request' });
-  }
+// Send a message
+app.post('/send', async (req, res) => {
+  const { text, senderId, receiverId } = req.body;
+  if (!text || !senderId || !receiverId) return res.status(400).json({ error: 'Invalid request' });
 
-  const stmt = db.prepare('INSERT INTO messages (id, text, userID) VALUES (?, ?, ?)');
-  stmt.run(messageId, text, userID, (err) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    const result = await pool.query(
+      "INSERT INTO messages (sender_id, receiver_id, text) VALUES ($1, $2, $3) RETURNING id",
+      [senderId, receiverId, text]
+    );
+    const messageId = result.rows[0].id;
+    const msg = { messageId, text, type: 'message', senderId, receiverId };
 
-    const msg = { messageId, text, type: 'message', userID };
-    
+    // Broadcast to all WebSocket clients
     wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(msg));
-      }
+      if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(msg));
     });
 
     res.json({ type: 'sent', messageId });
-  });
-  stmt.finalize();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Start HTTP server
+// ============================
+// START HTTP SERVER
+// ============================
 const server = app.listen(PORT, () => {
   console.log(`HTTP server running on port ${PORT}`);
 });
 
-// WebSocket server
+// ============================
+// WEBSOCKET SERVER
+// ============================
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   console.log('New client connected');
 
   // Send all existing messages to the new client
-  db.all('SELECT * FROM messages ORDER BY rowid ASC', [], (err, rows) => {
-    if (!err) {
-      rows.forEach(r => {
+  pool.query("SELECT * FROM messages ORDER BY created_at ASC")
+    .then(result => {
+      result.rows.forEach(r => {
         ws.send(JSON.stringify({
           messageId: r.id,
           text: r.text,
-          type: 'message',
-          userID: r.userID
+          type: "message",
+          senderId: r.sender_id,
+          receiverId: r.receiver_id
         }));
       });
-    }
-  });
+    }).catch(console.error);
 
   // Receive messages from clients
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data);
-      if (!msg.messageId || !msg.text || !msg.userID) return;
+      if (!msg.text || !msg.senderId || !msg.receiverId) return;
 
-      const stmt = db.prepare('INSERT INTO messages (id, text, userID) VALUES (?, ?, ?)');
-      stmt.run(msg.messageId, msg.text, msg.userID, (err) => {
-        if (err) return console.error('DB insert error:', err);
+      pool.query(
+        "INSERT INTO messages (sender_id, receiver_id, text) VALUES ($1, $2, $3) RETURNING id",
+        [msg.senderId, msg.receiverId, msg.text]
+      ).then(result => {
+        const messageId = result.rows[0].id;
+        const msgToSend = {
+          messageId,
+          text: msg.text,
+          type: "message",
+          senderId: msg.senderId,
+          receiverId: msg.receiverId
+        };
 
+        // Broadcast to all clients
         wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({
-              messageId: msg.messageId,
-              text: msg.text,
-              type: 'message',
-              userID: msg.userID
-            }));
-          }
+          if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(msgToSend));
         });
 
-        ws.send(JSON.stringify({ type: 'sent', messageId: msg.messageId }));
-      });
-      stmt.finalize();
+        ws.send(JSON.stringify({ type: "sent", messageId }));
+      }).catch(console.error);
+
     } catch (e) {
-      console.error('Error parsing message:', e);
+      console.error("Error parsing message:", e);
     }
   });
 
