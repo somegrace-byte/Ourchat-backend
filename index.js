@@ -15,7 +15,7 @@ app.use(bodyParser.json());
 
 // ------------------- PostgreSQL Connection -------------------
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // Make sure DATABASE_URL is set in Render environment variables
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
@@ -78,7 +78,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Get all users (optional, useful for search)
+// Get all users (optional)
 app.get('/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, profile_picture FROM users ORDER BY username ASC');
@@ -90,6 +90,8 @@ app.get('/users', async (req, res) => {
 });
 
 // ------------------- Delete user -------------------
+
+// Existing route
 app.delete('/users/:id', async (req, res) => {
   const userId = req.params.id;
 
@@ -98,10 +100,7 @@ app.delete('/users/:id', async (req, res) => {
   }
 
   try {
-    // Delete user's messages first
     await pool.query('DELETE FROM messages WHERE userid=$1', [userId]);
-
-    // Delete the user
     const deleteUser = await pool.query('DELETE FROM users WHERE id=$1 RETURNING *', [userId]);
 
     if (deleteUser.rowCount === 0) {
@@ -115,25 +114,40 @@ app.delete('/users/:id', async (req, res) => {
   }
 });
 
+// ✅ New route for compatibility with your app
+app.delete('/deleteUser/:id', async (req, res) => {
+  const userId = req.params.id;
+  if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+  try {
+    // Delete user's messages first
+    await pool.query('DELETE FROM messages WHERE userid=$1', [userId]);
+
+    // Delete the user
+    const result = await pool.query('DELETE FROM users WHERE id=$1 RETURNING *', [userId]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ success: true, message: 'User and messages deleted' });
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ------------------- Message Endpoints -------------------
 
 // Send message via HTTP
 app.post('/send', async (req, res) => {
   const { messageId, text, userID } = req.body;
-  if (!messageId || !text || !userID) {
-    return res.status(400).json({ error: 'Invalid request' });
-  }
+  if (!messageId || !text || !userID) return res.status(400).json({ error: 'Invalid request' });
 
   try {
     await pool.query('INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)', [messageId, text, userID]);
 
     const msg = { messageId, text, type: 'message', userID };
 
-    // Broadcast to WebSocket clients
     wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(msg));
-      }
+      if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(msg));
     });
 
     res.json({ type: 'sent', messageId });
@@ -171,7 +185,6 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
   console.log('New client connected');
 
-  // Send all existing messages to the new client
   (async () => {
     try {
       const result = await pool.query('SELECT * FROM messages ORDER BY id ASC');
@@ -188,7 +201,6 @@ wss.on('connection', (ws) => {
     }
   })();
 
-  // Receive messages from clients
   ws.on('message', async (data) => {
     try {
       const msg = JSON.parse(data);
@@ -197,7 +209,6 @@ wss.on('connection', (ws) => {
       await pool.query('INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)',
         [msg.messageId, msg.text, msg.userID]);
 
-      // Broadcast to all clients
       wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify({
@@ -209,9 +220,7 @@ wss.on('connection', (ws) => {
         }
       });
 
-      // Confirm to sender
       ws.send(JSON.stringify({ type: 'sent', messageId: msg.messageId }));
-
     } catch (err) {
       console.error('Error processing WS message:', err);
     }
