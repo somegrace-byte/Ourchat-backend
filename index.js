@@ -1,4 +1,4 @@
- // ------------------- Dependencies -------------------
+// ------------------- Dependencies -------------------
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -15,7 +15,7 @@ app.use(bodyParser.json());
 
 // ------------------- PostgreSQL Connection -------------------
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL, // Read from Render environment variable
   ssl: {
     rejectUnauthorized: false
   }
@@ -192,4 +192,4 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     console.log('Client disconnected');
   });
-});    
+});
