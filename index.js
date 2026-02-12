@@ -58,7 +58,49 @@ app.get("/testdb", async (req, res) => {
 });
 
 // ============================
-// HTTP ENDPOINTS
+// REGISTER USER
+// ============================
+app.post("/register", async (req, res) => {
+  const { username, profile_picture } = req.body;
+  if (!username) return res.status(400).json({ error: "Username is required" });
+
+  try {
+    const result = await pool.query(
+      "INSERT INTO users (username, profile_picture) VALUES ($1, $2) RETURNING id, username, profile_picture",
+      [username, profile_picture || null]
+    );
+    const user = result.rows[0];
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error(err);
+    if (err.code === "23505") { // unique violation
+      return res.status(400).json({ error: "Username already exists" });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================
+// SEARCH USERS
+// ============================
+app.get("/search", async (req, res) => {
+  const { username } = req.query;
+  if (!username) return res.status(400).json({ error: "Username query is required" });
+
+  try {
+    const result = await pool.query(
+      "SELECT id, username, profile_picture FROM users WHERE username ILIKE $1",
+      [`%${username}%`]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================
+// MESSAGES ENDPOINTS
 // ============================
 
 // Fetch all messages
