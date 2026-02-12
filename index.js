@@ -15,7 +15,7 @@ app.use(bodyParser.json());
 
 // ------------------- PostgreSQL Connection -------------------
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // Read from Render environment variable
+  connectionString: process.env.DATABASE_URL, // Make sure DATABASE_URL is set in Render environment variables
   ssl: {
     rejectUnauthorized: false
   }
@@ -38,7 +38,7 @@ const pool = new Pool({
       CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
         text TEXT NOT NULL,
-        userID INT NOT NULL REFERENCES users(id)
+        userid INT NOT NULL REFERENCES users(id)
       )
     `);
 
@@ -89,7 +89,35 @@ app.get('/users', async (req, res) => {
   }
 });
 
-// Send message via HTTP (optional)
+// ------------------- Delete user -------------------
+app.delete('/users/:id', async (req, res) => {
+  const userId = req.params.id;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    // Delete user's messages first
+    await pool.query('DELETE FROM messages WHERE userid=$1', [userId]);
+
+    // Delete the user
+    const deleteUser = await pool.query('DELETE FROM users WHERE id=$1 RETURNING *', [userId]);
+
+    if (deleteUser.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'User and messages deleted' });
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ------------------- Message Endpoints -------------------
+
+// Send message via HTTP
 app.post('/send', async (req, res) => {
   const { messageId, text, userID } = req.body;
   if (!messageId || !text || !userID) {
@@ -97,7 +125,7 @@ app.post('/send', async (req, res) => {
   }
 
   try {
-    await pool.query('INSERT INTO messages (id, text, userID) VALUES ($1, $2, $3)', [messageId, text, userID]);
+    await pool.query('INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)', [messageId, text, userID]);
 
     const msg = { messageId, text, type: 'message', userID };
 
@@ -166,7 +194,7 @@ wss.on('connection', (ws) => {
       const msg = JSON.parse(data);
       if (!msg.messageId || !msg.text || !msg.userID) return;
 
-      await pool.query('INSERT INTO messages (id, text, userID) VALUES ($1, $2, $3)',
+      await pool.query('INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)',
         [msg.messageId, msg.text, msg.userID]);
 
       // Broadcast to all clients
