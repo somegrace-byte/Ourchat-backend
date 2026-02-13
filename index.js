@@ -79,20 +79,19 @@ app.get('/users', async (req, res) => {
     let result;
 
     if (searchQuery) {
-      result = await pool.query(
-        `SELECT id, username, profile_picture 
-         FROM users 
-         WHERE username ILIKE $1
-         ORDER BY username ASC`,
-        [`%${searchQuery}%`]
-      );
-    } else {
-      result = await pool.query(
-        `SELECT id, username, profile_picture 
-         FROM users 
-         ORDER BY username ASC`
-      );
-    }
+  result = await pool.query(
+    `SELECT id, username, profile_picture 
+     FROM users 
+     WHERE LOWER(username) = LOWER($1)`,
+    [searchQuery]
+  );
+} else {
+  result = await pool.query(
+    `SELECT id, username, profile_picture 
+     FROM users 
+     ORDER BY username ASC`
+  );
+}
 
     res.json(result.rows);
   } catch (err) {
