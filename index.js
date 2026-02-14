@@ -24,7 +24,6 @@ const pool = new Pool({
 // ------------------- Tables Setup -------------------
 (async () => {
   try {
-    // Users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -33,7 +32,6 @@ const pool = new Pool({
       )
     `);
 
-    // Messages table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
@@ -58,10 +56,11 @@ app.post('/register', async (req, res) => {
 
   try {
     const userCheck = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
-    if (userCheck.rows.length > 0) return res.status(409).json({ error: 'Username already exists' });
+    if (userCheck.rows.length > 0)
+      return res.status(409).json({ error: 'Username already exists' });
 
     const insertUser = await pool.query(
-      'INSERT INTO users (username, profile_picture) VALUES ($1, $2) RETURNING *',
+      'INSERT INTO users (username, profile_picture) VALUES ($1, $2) RETURNING id, username',
       [username, profile_picture || null]
     );
 
@@ -72,26 +71,72 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ------------------- Get users (with optional search) -------------------
+// ------------------- Upload Avatar -------------------
+app.post('/upload-avatar', async (req, res) => {
+  const { userId, image } = req.body;
+
+  if (!userId || !image) {
+    return res.status(400).json({ error: 'Missing data' });
+  }
+
+  if (image.length > 250000) {
+    return res.status(400).json({ error: 'Image too large' });
+  }
+
+  try {
+    await pool.query(
+      'UPDATE users SET profile_picture=$1 WHERE id=$2',
+      [image, userId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ------------------- Get Avatar -------------------
+app.get('/user/:id/avatar', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT profile_picture FROM users WHERE id=$1',
+      [req.params.id]
+    );
+
+    if (!result.rows.length) {
+      return res.json({ image: null });
+    }
+
+    res.json({
+      image: result.rows[0].profile_picture
+    });
+  } catch (err) {
+    console.error('Error fetching avatar:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ------------------- Get users (NO Base64 returned) -------------------
 app.get('/users', async (req, res) => {
   try {
-    const searchQuery = req.query.q || ''; // Example: /users?q=John
+    const searchQuery = req.query.q || '';
     let result;
 
     if (searchQuery) {
-  result = await pool.query(
-    `SELECT id, username, profile_picture 
-     FROM users 
-     WHERE LOWER(username) = LOWER($1)`,
-    [searchQuery]
-  );
-} else {
-  result = await pool.query(
-    `SELECT id, username, profile_picture 
-     FROM users 
-     ORDER BY username ASC`
-  );
-}
+      result = await pool.query(
+        `SELECT id, username
+         FROM users
+         WHERE LOWER(username) = LOWER($1)`,
+        [searchQuery]
+      );
+    } else {
+      result = await pool.query(
+        `SELECT id, username
+         FROM users
+         ORDER BY username ASC`
+      );
+    }
 
     res.json(result.rows);
   } catch (err) {
@@ -107,8 +152,13 @@ app.delete('/users/:id', async (req, res) => {
 
   try {
     await pool.query('DELETE FROM messages WHERE userid=$1', [userId]);
-    const deleteUser = await pool.query('DELETE FROM users WHERE id=$1 RETURNING *', [userId]);
-    if (deleteUser.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    const deleteUser = await pool.query(
+      'DELETE FROM users WHERE id=$1 RETURNING *',
+      [userId]
+    );
+
+    if (deleteUser.rowCount === 0)
+      return res.status(404).json({ error: 'User not found' });
 
     res.json({ success: true, message: 'User and messages deleted' });
   } catch (err) {
@@ -117,15 +167,19 @@ app.delete('/users/:id', async (req, res) => {
   }
 });
 
-// ------------------- Alias delete route for compatibility -------------------
+// ------------------- Alias delete route -------------------
 app.delete('/deleteUser/:id', async (req, res) => {
   const userId = req.params.id;
-  if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
   try {
     await pool.query('DELETE FROM messages WHERE userid=$1', [userId]);
-    const result = await pool.query('DELETE FROM users WHERE id=$1 RETURNING *', [userId]);
-    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    const result = await pool.query(
+      'DELETE FROM users WHERE id=$1 RETURNING *',
+      [userId]
+    );
+
+    if (result.rowCount === 0)
+      return res.status(404).json({ error: 'User not found' });
 
     res.json({ success: true, message: 'User and messages deleted' });
   } catch (err) {
@@ -134,20 +188,23 @@ app.delete('/deleteUser/:id', async (req, res) => {
   }
 });
 
-// ------------------- Messages -------------------
-
-// Send message
+// ------------------- Send message -------------------
 app.post('/send', async (req, res) => {
   const { messageId, text, userID } = req.body;
-  if (!messageId || !text || !userID) return res.status(400).json({ error: 'Invalid request' });
+  if (!messageId || !text || !userID)
+    return res.status(400).json({ error: 'Invalid request' });
 
   try {
-    await pool.query('INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)', [messageId, text, userID]);
+    await pool.query(
+      'INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)',
+      [messageId, text, userID]
+    );
 
     const msg = { messageId, text, type: 'message', userID };
 
     wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(msg));
+      if (client.readyState === WebSocket.OPEN)
+        client.send(JSON.stringify(msg));
     });
 
     res.json({ type: 'sent', messageId });
@@ -157,16 +214,20 @@ app.post('/send', async (req, res) => {
   }
 });
 
-// Get all messages
+// ------------------- Get all messages -------------------
 app.get('/messages', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM messages ORDER BY id ASC');
+    const result = await pool.query(
+      'SELECT * FROM messages ORDER BY id ASC'
+    );
+
     const messages = result.rows.map(r => ({
       messageId: r.id,
       text: r.text,
       type: 'message',
       userID: r.userid
     }));
+
     res.json(messages);
   } catch (err) {
     console.error('Error fetching messages:', err);
@@ -186,7 +247,10 @@ wss.on('connection', (ws) => {
 
   (async () => {
     try {
-      const result = await pool.query('SELECT * FROM messages ORDER BY id ASC');
+      const result = await pool.query(
+        'SELECT * FROM messages ORDER BY id ASC'
+      );
+
       result.rows.forEach(r => {
         ws.send(JSON.stringify({
           messageId: r.id,
@@ -205,8 +269,10 @@ wss.on('connection', (ws) => {
       const msg = JSON.parse(data);
       if (!msg.messageId || !msg.text || !msg.userID) return;
 
-      await pool.query('INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)',
-        [msg.messageId, msg.text, msg.userID]);
+      await pool.query(
+        'INSERT INTO messages (id, text, userid) VALUES ($1, $2, $3)',
+        [msg.messageId, msg.text, msg.userID]
+      );
 
       wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
@@ -219,7 +285,11 @@ wss.on('connection', (ws) => {
         }
       });
 
-      ws.send(JSON.stringify({ type: 'sent', messageId: msg.messageId }));
+      ws.send(JSON.stringify({
+        type: 'sent',
+        messageId: msg.messageId
+      }));
+
     } catch (err) {
       console.error('Error processing WS message:', err);
     }
