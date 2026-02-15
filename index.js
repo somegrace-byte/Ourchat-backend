@@ -115,6 +115,9 @@ app.post('/send', async (req, res) => {
 
   const { messageId, text, senderID, receiverID } = req.body;
 
+  console.log("SEND endpoint hit");
+  console.log("Incoming body:", req.body);
+
   if (!messageId || !text || !senderID || !receiverID)
     return res.status(400).json({ error: 'Invalid request' });
 
@@ -125,6 +128,8 @@ app.post('/send', async (req, res) => {
       [messageId, text, senderID, receiverID]
     );
 
+    console.log(`Message saved to DB from ${senderID} to ${receiverID}`);
+
     const msg = {
       messageId,
       text,
@@ -134,8 +139,15 @@ app.post('/send', async (req, res) => {
 
     const receiverSocket = connectedUsers.get(receiverID);
 
+    console.log("Connected users:", Array.from(connectedUsers.keys()));
+    console.log("Looking for receiver:", receiverID);
+    console.log("Socket found:", !!receiverSocket);
+
     if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+      console.log("Sending message to receiver via WebSocket");
       receiverSocket.send(JSON.stringify(msg));
+    } else {
+      console.log("Receiver socket not open or not found");
     }
 
     res.json({ type: 'sent', messageId });
@@ -186,10 +198,12 @@ wss.on('connection', (ws) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
+      console.log("WebSocket message received:", data);
 
       if (data.type === 'register') {
         connectedUsers.set(data.userID, ws);
         console.log(`User ${data.userID} registered`);
+        console.log("Currently connected users:", Array.from(connectedUsers.keys()));
       }
 
     } catch (err) {
@@ -202,6 +216,7 @@ wss.on('connection', (ws) => {
       if (socket === ws) {
         connectedUsers.delete(userId);
         console.log(`User ${userId} disconnected`);
+        console.log("Currently connected users:", Array.from(connectedUsers.keys()));
       }
     }
   });
