@@ -189,6 +189,7 @@ const server = app.listen(PORT, () => {
 });
 
 // ------------------- WebSocket -------------------
+// ------------------- WebSocket -------------------
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
@@ -200,10 +201,26 @@ wss.on('connection', (ws) => {
       const data = JSON.parse(message);
       console.log("WebSocket message received:", data);
 
+      // ---------------- REGISTER ----------------
       if (data.type === 'register') {
         connectedUsers.set(data.userID, ws);
         console.log(`User ${data.userID} registered`);
         console.log("Currently connected users:", Array.from(connectedUsers.keys()));
+      }
+
+      // ---------------- REALTIME MESSAGE ----------------
+      if (data.type === 'message') {
+
+        console.log("Forward attempt:", data);
+
+        const receiverSocket = connectedUsers.get(data.receiverId);
+
+        if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+          receiverSocket.send(JSON.stringify(data));
+          console.log("Message forwarded to user:", data.receiverId);
+        } else {
+          console.log("Receiver not connected:", data.receiverId);
+        }
       }
 
     } catch (err) {
