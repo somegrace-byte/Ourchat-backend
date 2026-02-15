@@ -79,6 +79,37 @@ app.post('/register', async (req, res) => {
 });
 
 
+// ------------------- Get Users (SEARCH) -------------------
+app.get('/users', async (req, res) => {
+  try {
+
+    const searchQuery = req.query.q || '';
+    let result;
+
+    if (searchQuery) {
+      result = await pool.query(
+        `SELECT id, username, profile_picture
+         FROM users
+         WHERE LOWER(username) = LOWER($1)`,
+        [searchQuery]
+      );
+    } else {
+      result = await pool.query(
+        `SELECT id, username, profile_picture
+         FROM users
+         ORDER BY username ASC`
+      );
+    }
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error("User fetch error:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 // ------------------- Send Message -------------------
 app.post('/send', async (req, res) => {
 
@@ -101,7 +132,6 @@ app.post('/send', async (req, res) => {
       receiverID
     };
 
-    // Send to receiver only
     const receiverSocket = connectedUsers.get(receiverID);
 
     if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
@@ -157,7 +187,6 @@ wss.on('connection', (ws) => {
     try {
       const data = JSON.parse(message);
 
-      // Register user socket
       if (data.type === 'register') {
         connectedUsers.set(data.userID, ws);
         console.log(`User ${data.userID} registered`);
