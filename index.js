@@ -271,7 +271,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// ------------------- WebSocket -------------------
+
 // ------------------- WebSocket -------------------
 const wss = new WebSocket.Server({ server });
 
@@ -279,7 +279,8 @@ wss.on('connection', (ws) => {
 
   console.log("Client connected");
 
-  ws.on('message', (message) => {
+  ws.on('message', async (message) => {
+
     try {
       const data = JSON.parse(message);
       console.log("WebSocket message received:", data);
@@ -288,19 +289,34 @@ wss.on('connection', (ws) => {
       if (data.type === 'register') {
         connectedUsers.set(data.userID, ws);
         console.log(`User ${data.userID} registered`);
-        console.log("Currently connected users:", Array.from(connectedUsers.keys()));
       }
 
       // ---------------- REALTIME MESSAGE ----------------
       if (data.type === 'message') {
 
-        console.log("Forward attempt:", data);
+        // 🔹 Fetch sender avatar from DB
+        const senderResult = await pool.query(
+          'SELECT profile_picture FROM users WHERE id = $1',
+          [data.senderId]
+        );
+
+        const profilePicture =
+          senderResult.rows[0]?.profile_picture || null;
 
         const receiverSocket = connectedUsers.get(data.receiverId);
 
-        if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
-          receiverSocket.send(JSON.stringify(data));
-          console.log("Message forwarded to user:", data.receiverId);
+        if (receiverSocket &&
+            receiverSocket.readyState === WebSocket.OPEN) {
+
+          receiverSocket.send(JSON.stringify({
+            type: "message",
+            text: data.text,
+            senderId: data.senderId,
+            receiverId: data.receiverId,
+            profile_picture: profilePicture
+          }));
+
+          console.log("Message forwarded with avatar");
         } else {
           console.log("Receiver not connected:", data.receiverId);
         }
@@ -316,7 +332,6 @@ wss.on('connection', (ws) => {
       if (socket === ws) {
         connectedUsers.delete(userId);
         console.log(`User ${userId} disconnected`);
-        console.log("Currently connected users:", Array.from(connectedUsers.keys()));
       }
     }
   });
