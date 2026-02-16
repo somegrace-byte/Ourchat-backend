@@ -78,6 +78,33 @@ app.post('/register', async (req, res) => {
   }
 });
 
+// ------------------- Upload / Update Avatar -------------------
+app.post('/upload-avatar', async (req, res) => {
+  const { userId, image } = req.body;
+
+  if (!userId || !image) {
+    return res.status(400).json({ error: 'Missing userId or image' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET profile_picture = $1 WHERE id = $2 RETURNING id',
+      [image, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'Avatar updated successfully' });
+
+  } catch (err) {
+    console.error("Avatar update error:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 
 // ------------------- Get Users (SEARCH) -------------------
 app.get('/users', async (req, res) => {
