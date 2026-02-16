@@ -209,6 +209,35 @@ app.get('/messages/:user1/:user2', async (req, res) => {
   }
 });
 
+// ------------------- Delete User -------------------
+app.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // First delete their messages
+    await pool.query(
+      'DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1',
+      [id]
+    );
+
+    // Then delete the user
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'User deleted successfully' });
+
+  } catch (err) {
+    console.error("Delete user error:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 // ------------------- HTTP Server -------------------
 const server = app.listen(PORT, () => {
