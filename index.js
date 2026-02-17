@@ -324,52 +324,71 @@ wss.on('connection', (ws) => {
   console.log("Delivered stored messages:", undelivered.rowCount);
       }
 
-     // ---------------- REALTIME MESSAGE ----------------
-if (data.type === 'message') {
+    // ---------------- REALTIME MESSAGE ----------------
+      if (data.type === 'message') {
 
-  const { messageId, text, senderId, receiverId } = data;
+        const { messageId, text, senderId, receiverId } = data;
 
-  // 1️⃣ Save message to DB as undelivered
-  await pool.query(
-    `INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
-     VALUES ($1, $2, $3, $4, false)`,
-    [messageId, text, senderId, receiverId]
-  );
+        // 1️⃣ Save message to DB as undelivered
+        await pool.query(
+          `INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
+           VALUES ($1, $2, $3, $4, false)`,
+          [messageId, text, senderId, receiverId]
+        );
 
-  // 2️⃣ Fetch sender avatar
-  const senderResult = await pool.query(
-    'SELECT profile_picture FROM users WHERE id = $1',
-    [senderId]
-  );
+        // 2️⃣ Fetch sender avatar
+        const senderResult = await pool.query(
+          'SELECT profile_picture FROM users WHERE id = $1',
+          [senderId]
+        );
 
-  const profilePicture =
-    senderResult.rows[0]?.profile_picture || null;
+        const profilePicture =
+          senderResult.rows[0]?.profile_picture || null;
 
-  const receiverSocket = connectedUsers.get(receiverId);
+        const receiverSocket = connectedUsers.get(receiverId);
 
-  // 3️⃣ If receiver online → send immediately
-  if (receiverSocket &&
-      receiverSocket.readyState === WebSocket.OPEN) {
+        // 3️⃣ If receiver online → send immediately
+        if (
+          receiverSocket &&
+          receiverSocket.readyState === WebSocket.OPEN
+        ) {
 
-    receiverSocket.send(JSON.stringify({
-      type: "message",
-      messageId,
-      text,
-      senderId,
-      receiverId,
-      profile_picture: profilePicture
-    }));
+          receiverSocket.send(JSON.stringify({
+            type: "message",
+            messageId,
+            text,
+            senderId,
+            receiverId,
+            profile_picture: profilePicture
+          }));
 
-    // 4️⃣ Mark as delivered
-    await pool.query(
-      `UPDATE messages
-       SET delivered = true
-       WHERE id = $1`,
-      [messageId]
-    );
+          // 4️⃣ Mark as delivered
+          await pool.query(
+            `UPDATE messages
+             SET delivered = true
+             WHERE id = $1`,
+            [messageId]
+          );
 
-    console.log("Message delivered instantly");
-  } else {
-    console.log("Receiver offline. Message stored.");
-  }
-} 
+          console.log("Message delivered instantly");
+
+        } else {
+          console.log("Receiver offline. Message stored.");
+        }
+      }
+
+    } catch (err) {
+      console.error("WS error:", err);
+    }
+  });
+
+  ws.on('close', () => {
+    for (const [userId, socket] of connectedUsers.entries()) {
+      if (socket === ws) {
+        connectedUsers.delete(userId);
+        console.log(`User ${userId} disconnected`);
+      }
+    }
+  });
+
+}); 
