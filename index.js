@@ -50,13 +50,166 @@ const connectedUsers = new Map();
   }
 })();
 
-// ------------------- HTTP Server -------------------
+
+// =======================================================
+// ===================== HTTP ROUTES =====================
+// =======================================================
+
+// ------------------- Register -------------------
+app.post('/register', async (req, res) => {
+  const { username, profile_picture } = req.body;
+
+  if (!username)
+    return res.status(400).json({ error: 'Username required' });
+
+  try {
+    const existing = await pool.query(
+      'SELECT * FROM users WHERE username=$1',
+      [username]
+    );
+
+    if (existing.rows.length > 0)
+      return res.status(409).json({ error: 'Username exists' });
+
+    const user = await pool.query(
+      'INSERT INTO users (username, profile_picture) VALUES ($1,$2) RETURNING id, username',
+      [username, profile_picture || null]
+    );
+
+    res.status(201).json({ user: user.rows[0] });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- Upload Avatar -------------------
+app.post('/upload-avatar', async (req, res) => {
+  const { userId, image } = req.body;
+
+  if (!userId || !image)
+    return res.status(400).json({ error: 'Missing userId or image' });
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET profile_picture = $1 WHERE id = $2 RETURNING id',
+      [image, userId]
+    );
+
+    if (result.rowCount === 0)
+      return res.status(404).json({ error: 'User not found' });
+
+    res.json({ message: 'Avatar updated successfully' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- Get Users -------------------
+app.get('/users', async (req, res) => {
+  try {
+    const searchQuery = req.query.q || '';
+    let result;
+
+    if (searchQuery) {
+      result = await pool.query(
+        `SELECT id, username, profile_picture
+         FROM users
+         WHERE LOWER(username) = LOWER($1)`,
+        [searchQuery]
+      );
+    } else {
+      result = await pool.query(
+        `SELECT id, username, profile_picture
+         FROM users
+         ORDER BY username ASC`
+      );
+    }
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- Get Avatar -------------------
+app.get('/user/:id/avatar', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT profile_picture FROM users WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: 'User not found' });
+
+    res.json({ image: result.rows[0].profile_picture });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- Get Conversation -------------------
+app.get('/messages/:user1/:user2', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM messages
+       WHERE (sender_id=$1 AND receiver_id=$2)
+          OR (sender_id=$2 AND receiver_id=$1)
+       ORDER BY created_at ASC`,
+      [req.params.user1, req.params.user2]
+    );
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- Delete User -------------------
+app.delete('/users/:id', async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM messages WHERE sender_id=$1 OR receiver_id=$1',
+      [req.params.id]
+    );
+
+    const result = await pool.query(
+      'DELETE FROM users WHERE id=$1 RETURNING id',
+      [req.params.id]
+    );
+
+    if (result.rowCount === 0)
+      return res.status(404).json({ error: 'User not found' });
+
+    res.json({ message: 'User deleted successfully' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// =======================================================
+// =================== SERVER START ======================
+// =======================================================
+
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// ------------------- WebSocket -------------------
 const wss = new WebSocket.Server({ server });
+
 
 // ------------------- Heartbeat -------------------
 function heartbeat() {
@@ -65,8 +218,6 @@ function heartbeat() {
 
 wss.on('connection', (ws) => {
 
-  console.log("Client connected");
-
   ws.isAlive = true;
   ws.on('pong', heartbeat);
 
@@ -74,25 +225,18 @@ wss.on('connection', (ws) => {
 
     try {
       const data = JSON.parse(message);
-      console.log("WebSocket message received:", data);
 
-      // ---------------- REGISTER ----------------
+      // ---------------- REGISTER SOCKET ----------------
       if (data.type === 'register') {
 
-        const userId = data.userID;
+        ws.userID = data.userID;
+        connectedUsers.set(data.userID, ws);
 
-        ws.userID = userId;
-        connectedUsers.set(userId, ws);
-
-        console.log(`User ${userId} registered`);
-
-        // Send undelivered messages
         const undelivered = await pool.query(
           `SELECT * FROM messages
-           WHERE receiver_id = $1
-           AND delivered = false
+           WHERE receiver_id=$1 AND delivered=false
            ORDER BY created_at ASC`,
-          [userId]
+          [data.userID]
         );
 
         for (const msg of undelivered.rows) {
@@ -104,57 +248,35 @@ wss.on('connection', (ws) => {
             receiverId: msg.receiver_id
           }));
         }
-
-        console.log("Undelivered messages sent:", undelivered.rowCount);
       }
 
-      // ---------------- REALTIME MESSAGE ----------------
+      // ---------------- SEND MESSAGE ----------------
       if (data.type === 'message') {
 
-        const { messageId, text, senderId, receiverId } = data;
-
-        // Store as undelivered
         await pool.query(
-          `INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
-           VALUES ($1, $2, $3, $4, false)`,
-          [messageId, text, senderId, receiverId]
+          `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
+           VALUES ($1,$2,$3,$4,false)`,
+          [data.messageId, data.text, data.senderId, data.receiverId]
         );
 
-        const receiverSocket = connectedUsers.get(receiverId);
+        const receiverSocket = connectedUsers.get(data.receiverId);
 
-        if (
-          receiverSocket &&
-          receiverSocket.readyState === WebSocket.OPEN
-        ) {
-
-          receiverSocket.send(JSON.stringify({
-            type: "message",
-            messageId,
-            text,
-            senderId,
-            receiverId
-          }));
-
-          console.log("Message sent to online user (waiting for ACK)");
-
-        } else {
-          console.log("Receiver offline. Message stored.");
+        if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+          receiverSocket.send(JSON.stringify(data));
         }
       }
 
       // ---------------- ACK DELIVERY ----------------
       if (data.type === 'ack') {
 
-        const { messageId } = data;
-
         await pool.query(
           `UPDATE messages
-           SET delivered = true
-           WHERE id = $1`,
-          [messageId]
+           SET delivered=true
+           WHERE id=$1`,
+          [data.messageId]
         );
 
-        console.log("Message delivery confirmed:", messageId);
+        console.log("Delivery confirmed:", data.messageId);
       }
 
     } catch (err) {
@@ -163,26 +285,19 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (ws.userID) {
-      connectedUsers.delete(ws.userID);
-      console.log(`User ${ws.userID} disconnected`);
-    }
+    if (ws.userID) connectedUsers.delete(ws.userID);
   });
 
 });
 
+
 // ------------------- Heartbeat Interval -------------------
-const interval = setInterval(() => {
+setInterval(() => {
 
   wss.clients.forEach((ws) => {
 
-    if (ws.isAlive === false) {
-
-      if (ws.userID) {
-        connectedUsers.delete(ws.userID);
-        console.log(`User ${ws.userID} force removed (dead socket)`);
-      }
-
+    if (!ws.isAlive) {
+      if (ws.userID) connectedUsers.delete(ws.userID);
       return ws.terminate();
     }
 
