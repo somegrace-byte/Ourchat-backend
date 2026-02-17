@@ -362,13 +362,7 @@ wss.on('connection', (ws) => {
             profile_picture: profilePicture
           }));
 
-          // 4️⃣ Mark as delivered
-          await pool.query(
-            `UPDATE messages
-             SET delivered = true
-             WHERE id = $1`,
-            [messageId]
-          );
+  
 
           console.log("Message delivered instantly");
 
