@@ -287,53 +287,89 @@ wss.on('connection', (ws) => {
 
       // ---------------- REGISTER ----------------
       if (data.type === 'register') {
-        connectedUsers.set(data.userID, ws);
-        console.log(`User ${data.userID} registered`);
+
+  const userId = data.userID;
+  connectedUsers.set(userId, ws);
+  console.log(`User ${userId} registered`);
+
+  // 🔹 Fetch undelivered messages
+  const undelivered = await pool.query(
+    `SELECT * FROM messages
+     WHERE receiver_id = $1
+     AND delivered = false
+     ORDER BY created_at ASC`,
+    [userId]
+  );
+
+  for (const msg of undelivered.rows) {
+
+    ws.send(JSON.stringify({
+      type: "message",
+      messageId: msg.id,
+      text: msg.text,
+      senderId: msg.sender_id,
+      receiverId: msg.receiver_id
+    }));
+  }
+
+  // 🔹 Mark them delivered
+  await pool.query(
+    `UPDATE messages
+     SET delivered = true
+     WHERE receiver_id = $1
+     AND delivered = false`,
+    [userId]
+  );
+
+  console.log("Delivered stored messages:", undelivered.rowCount);
       }
 
-      // ---------------- REALTIME MESSAGE ----------------
-      if (data.type === 'message') {
+     // ---------------- REALTIME MESSAGE ----------------
+if (data.type === 'message') {
 
-        // 🔹 Fetch sender avatar from DB
-        const senderResult = await pool.query(
-          'SELECT profile_picture FROM users WHERE id = $1',
-          [data.senderId]
-        );
+  const { messageId, text, senderId, receiverId } = data;
 
-        const profilePicture =
-          senderResult.rows[0]?.profile_picture || null;
+  // 1️⃣ Save message to DB as undelivered
+  await pool.query(
+    `INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
+     VALUES ($1, $2, $3, $4, false)`,
+    [messageId, text, senderId, receiverId]
+  );
 
-        const receiverSocket = connectedUsers.get(data.receiverId);
+  // 2️⃣ Fetch sender avatar
+  const senderResult = await pool.query(
+    'SELECT profile_picture FROM users WHERE id = $1',
+    [senderId]
+  );
 
-        if (receiverSocket &&
-            receiverSocket.readyState === WebSocket.OPEN) {
+  const profilePicture =
+    senderResult.rows[0]?.profile_picture || null;
 
-          receiverSocket.send(JSON.stringify({
-            type: "message",
-            text: data.text,
-            senderId: data.senderId,
-            receiverId: data.receiverId,
-            profile_picture: profilePicture
-          }));
+  const receiverSocket = connectedUsers.get(receiverId);
 
-          console.log("Message forwarded with avatar");
-        } else {
-          console.log("Receiver not connected:", data.receiverId);
-        }
-      }
+  // 3️⃣ If receiver online → send immediately
+  if (receiverSocket &&
+      receiverSocket.readyState === WebSocket.OPEN) {
 
-    } catch (err) {
-      console.error("WS error:", err);
-    }
-  });
+    receiverSocket.send(JSON.stringify({
+      type: "message",
+      messageId,
+      text,
+      senderId,
+      receiverId,
+      profile_picture: profilePicture
+    }));
 
-  ws.on('close', () => {
-    for (const [userId, socket] of connectedUsers.entries()) {
-      if (socket === ws) {
-        connectedUsers.delete(userId);
-        console.log(`User ${userId} disconnected`);
-      }
-    }
-  });
+    // 4️⃣ Mark as delivered
+    await pool.query(
+      `UPDATE messages
+       SET delivered = true
+       WHERE id = $1`,
+      [messageId]
+    );
 
-});
+    console.log("Message delivered instantly");
+  } else {
+    console.log("Receiver offline. Message stored.");
+  }
+} 
