@@ -50,17 +50,15 @@ const connectedUsers = new Map();
   }
 })();
 
-
 // ------------------- HTTP Server -------------------
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-
 // ------------------- WebSocket -------------------
 const wss = new WebSocket.Server({ server });
 
-// ------------------- Heartbeat Function -------------------
+// ------------------- Heartbeat -------------------
 function heartbeat() {
   this.isAlive = true;
 }
@@ -83,13 +81,12 @@ wss.on('connection', (ws) => {
 
         const userId = data.userID;
 
-        ws.userID = userId;       // attach userId to socket
-        ws.isAlive = true;        // mark alive
+        ws.userID = userId;
         connectedUsers.set(userId, ws);
 
         console.log(`User ${userId} registered`);
 
-        // 🔹 Fetch undelivered messages
+        // Send undelivered messages
         const undelivered = await pool.query(
           `SELECT * FROM messages
            WHERE receiver_id = $1
@@ -99,7 +96,6 @@ wss.on('connection', (ws) => {
         );
 
         for (const msg of undelivered.rows) {
-
           ws.send(JSON.stringify({
             type: "message",
             messageId: msg.id,
@@ -109,16 +105,7 @@ wss.on('connection', (ws) => {
           }));
         }
 
-        // 🔹 Mark them delivered
-        await pool.query(
-          `UPDATE messages
-           SET delivered = true
-           WHERE receiver_id = $1
-           AND delivered = false`,
-          [userId]
-        );
-
-        console.log("Delivered stored messages:", undelivered.rowCount);
+        console.log("Undelivered messages sent:", undelivered.rowCount);
       }
 
       // ---------------- REALTIME MESSAGE ----------------
@@ -126,20 +113,12 @@ wss.on('connection', (ws) => {
 
         const { messageId, text, senderId, receiverId } = data;
 
-        // Save message as undelivered
+        // Store as undelivered
         await pool.query(
           `INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
            VALUES ($1, $2, $3, $4, false)`,
           [messageId, text, senderId, receiverId]
         );
-
-        const senderResult = await pool.query(
-          'SELECT profile_picture FROM users WHERE id = $1',
-          [senderId]
-        );
-
-        const profilePicture =
-          senderResult.rows[0]?.profile_picture || null;
 
         const receiverSocket = connectedUsers.get(receiverId);
 
@@ -153,22 +132,29 @@ wss.on('connection', (ws) => {
             messageId,
             text,
             senderId,
-            receiverId,
-            profile_picture: profilePicture
+            receiverId
           }));
 
-          await pool.query(
-            `UPDATE messages
-             SET delivered = true
-             WHERE id = $1`,
-            [messageId]
-          );
-
-          console.log("Message delivered instantly");
+          console.log("Message sent to online user (waiting for ACK)");
 
         } else {
           console.log("Receiver offline. Message stored.");
         }
+      }
+
+      // ---------------- ACK DELIVERY ----------------
+      if (data.type === 'ack') {
+
+        const { messageId } = data;
+
+        await pool.query(
+          `UPDATE messages
+           SET delivered = true
+           WHERE id = $1`,
+          [messageId]
+        );
+
+        console.log("Message delivery confirmed:", messageId);
       }
 
     } catch (err) {
@@ -176,7 +162,6 @@ wss.on('connection', (ws) => {
     }
   });
 
-  // Clean disconnect
   ws.on('close', () => {
     if (ws.userID) {
       connectedUsers.delete(ws.userID);
@@ -185,7 +170,6 @@ wss.on('connection', (ws) => {
   });
 
 });
-
 
 // ------------------- Heartbeat Interval -------------------
 const interval = setInterval(() => {
@@ -207,4 +191,4 @@ const interval = setInterval(() => {
 
   });
 
-}, 30000); // every 30 seconds
+}, 30000);
