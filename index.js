@@ -56,15 +56,33 @@ const connectedUsers = new Map();
 // =======================================================
 
 app.post('/register', async (req, res) => {
-  const { username, profile_picture } = req.body;
+  let { username, profile_picture } = req.body;
 
-  if (!username)
+  if (!username || username.trim() === '')
     return res.status(400).json({ error: 'Username required' });
+
+  // Trim whitespace
+  username = username.trim();
+
+  // ❌ Letters only (no numbers, no symbols)
+  const lettersOnly = /^[A-Za-z]+$/;
+  if (!lettersOnly.test(username)) {
+    return res.status(400).json({
+      error: 'Username must contain letters only'
+    });
+  }
+
+  // ✅ Normalize to John format
+  username = username.toLowerCase();
+  username =
+    username.charAt(0).toUpperCase() +
+    username.slice(1);
 
   try {
 
+    // 🔒 Case-insensitive duplicate check
     const existing = await pool.query(
-      'SELECT * FROM users WHERE username=$1',
+      'SELECT * FROM users WHERE LOWER(username)=LOWER($1)',
       [username]
     );
 
