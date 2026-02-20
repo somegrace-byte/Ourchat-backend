@@ -306,13 +306,20 @@ setInterval(() => {
 
     if (!ws.isAlive) {
 
-  if (ws.userID) {
-    const current = connectedUsers.get(ws.userID);
-    if (current === ws) {
-      connectedUsers.delete(ws.userID);
-      console.log("Terminated dead socket for user:", ws.userID);
-    }
-  }
+      if (ws.userID) {
+        const current = connectedUsers.get(ws.userID);
+        if (current === ws) {
+          connectedUsers.delete(ws.userID);
+          console.log("Terminated dead socket for user:", ws.userID);
+        }
+      }
 
-  return ws.terminate();
-}
+      return ws.terminate();
+    }
+
+    ws.isAlive = false;
+    ws.ping();
+
+  });
+
+}, 30000);
