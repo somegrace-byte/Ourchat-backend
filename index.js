@@ -285,9 +285,17 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (ws.userID) connectedUsers.delete(ws.userID);
-  });
+  if (ws.userID) {
+    const current = connectedUsers.get(ws.userID);
 
+    // Only delete if THIS socket is still the active one
+    if (current === ws) {
+      connectedUsers.delete(ws.userID);
+      console.log("Socket removed for user:", ws.userID);
+    } else {
+      console.log("Old socket closed, ignored for user:", ws.userID);
+    }
+  }
 });
 
 
@@ -297,13 +305,14 @@ setInterval(() => {
   wss.clients.forEach((ws) => {
 
     if (!ws.isAlive) {
-      if (ws.userID) connectedUsers.delete(ws.userID);
-      return ws.terminate();
+
+  if (ws.userID) {
+    const current = connectedUsers.get(ws.userID);
+    if (current === ws) {
+      connectedUsers.delete(ws.userID);
+      console.log("Terminated dead socket for user:", ws.userID);
     }
+  }
 
-    ws.isAlive = false;
-    ws.ping();
-
-  });
-
-}, 30000);
+  return ws.terminate();
+}
