@@ -287,14 +287,16 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (ws.userID) {
-      const current = connectedUsers.get(ws.userID);
-      if (current === ws) {
-        connectedUsers.delete(ws.userID);
-        console.log("Socket removed for user:", ws.userID);
-      }
+  if (ws.userID) {
+    const current = connectedUsers.get(ws.userID);
+
+    // Only remove mapping if THIS socket is still the active one
+    if (current === ws) {
+      connectedUsers.delete(ws.userID);
+      console.log("Socket removed for user:", ws.userID);
     }
-  });
+  }
+});
 
 });
 
