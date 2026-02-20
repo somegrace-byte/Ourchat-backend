@@ -309,6 +309,8 @@ setInterval(() => {
 
       if (ws.userID) {
         const current = connectedUsers.get(ws.userID);
+
+        // Only delete if THIS socket is still the active one
         if (current === ws) {
           connectedUsers.delete(ws.userID);
           console.log("Terminated dead socket for user:", ws.userID);
