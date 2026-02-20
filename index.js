@@ -55,7 +55,6 @@ const connectedUsers = new Map();
 // ===================== HTTP ROUTES =====================
 // =======================================================
 
-// ------------------- Register -------------------
 app.post('/register', async (req, res) => {
   const { username, profile_picture } = req.body;
 
@@ -84,7 +83,6 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ------------------- Upload Avatar -------------------
 app.post('/upload-avatar', async (req, res) => {
   const { userId, image } = req.body;
 
@@ -108,7 +106,6 @@ app.post('/upload-avatar', async (req, res) => {
   }
 });
 
-// ------------------- Get Users -------------------
 app.get('/users', async (req, res) => {
   try {
     const searchQuery = req.query.q || '';
@@ -137,7 +134,6 @@ app.get('/users', async (req, res) => {
   }
 });
 
-// ------------------- Get Avatar -------------------
 app.get('/user/:id/avatar', async (req, res) => {
   try {
     const result = await pool.query(
@@ -156,7 +152,6 @@ app.get('/user/:id/avatar', async (req, res) => {
   }
 });
 
-// ------------------- Get Conversation -------------------
 app.get('/messages/:user1/:user2', async (req, res) => {
   try {
     const result = await pool.query(
@@ -171,155 +166,4 @@ app.get('/messages/:user1/:user2', async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// ------------------- Delete User -------------------
-app.delete('/users/:id', async (req, res) => {
-  try {
-    await pool.query(
-      'DELETE FROM messages WHERE sender_id=$1 OR receiver_id=$1',
-      [req.params.id]
-    );
-
-    const result = await pool.query(
-      'DELETE FROM users WHERE id=$1 RETURNING id',
-      [req.params.id]
-    );
-
-    if (result.rowCount === 0)
-      return res.status(404).json({ error: 'User not found' });
-
-    res.json({ message: 'User deleted successfully' });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-
-// =======================================================
-// =================== SERVER START ======================
-// =======================================================
-
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-const wss = new WebSocket.Server({ server });
-
-
-// ------------------- Heartbeat -------------------
-function heartbeat() {
-  this.isAlive = true;
-}
-
-wss.on('connection', (ws) => {
-
-  ws.isAlive = true;
-  ws.on('pong', heartbeat);
-
-  ws.on('message', async (message) => {
-
-    try {
-      const data = JSON.parse(message);
-
-      // ---------------- REGISTER SOCKET ----------------
-      if (data.type === 'register') {
-
-        ws.userID = data.userID;
-        connectedUsers.set(data.userID, ws);
-
-        const undelivered = await pool.query(
-          `SELECT * FROM messages
-           WHERE receiver_id=$1 AND delivered=false
-           ORDER BY created_at ASC`,
-          [data.userID]
-        );
-
-        for (const msg of undelivered.rows) {
-          ws.send(JSON.stringify({
-            type: "message",
-            messageId: msg.id,
-            text: msg.text,
-            senderId: msg.sender_id,
-            receiverId: msg.receiver_id
-          }));
-        }
-      }
-
-      // ---------------- SEND MESSAGE ----------------
-      if (data.type === 'message') {
-
-        await pool.query(
-          `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
-           VALUES ($1,$2,$3,$4,false)`,
-          [data.messageId, data.text, data.senderId, data.receiverId]
-        );
-
-        const receiverSocket = connectedUsers.get(data.receiverId);
-
-        if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
-          receiverSocket.send(JSON.stringify(data));
-        }
-      }
-
-      // ---------------- ACK DELIVERY ----------------
-      if (data.type === 'ack') {
-
-        await pool.query(
-          `UPDATE messages
-           SET delivered=true
-           WHERE id=$1`,
-          [data.messageId]
-        );
-
-        console.log("Delivery confirmed:", data.messageId);
-      }
-
-    } catch (err) {
-      console.error("WS error:", err);
-    }
-  });
-
-  ws.on('close', () => {
-  if (ws.userID) {
-    const current = connectedUsers.get(ws.userID);
-
-    // Only delete if THIS socket is still the active one
-    if (current === ws) {
-      connectedUsers.delete(ws.userID);
-      console.log("Socket removed for user:", ws.userID);
-    } else {
-      console.log("Old socket closed, ignored for user:", ws.userID);
-    }
-  }
-});
-
-
-// ------------------- Heartbeat Interval -------------------
-setInterval(() => {
-
-  wss.clients.forEach((ws) => {
-
-    if (!ws.isAlive) {
-
-      if (ws.userID) {
-        const current = connectedUsers.get(ws.userID);
-        if (current === ws) {
-          connectedUsers.delete(ws.userID);
-          console.log("Terminated dead socket for user:", ws.userID);
-        }
-      }
-
-      return ws.terminate();
-    }
-
-    ws.isAlive = false;
-    ws.ping();
-
-  });
-
-}, 30000);
+    res.status(500).json({ error: 'Server error
