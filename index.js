@@ -58,49 +58,64 @@ const connectedUsers = new Map();
 app.post('/register', async (req, res) => {
   let { username, profile_picture } = req.body;
 
-  if (!username || username.trim() === '')
+  // 1️⃣ Required check
+  if (!username || username.trim() === '') {
     return res.status(400).json({ error: 'Username required' });
+  }
 
-  // Trim whitespace
-  username = username.trim();
+  // 2️⃣ Trim + collapse multiple spaces
+  username = username.trim().replace(/\s+/g, ' ');
 
-  // ❌ Letters only (no numbers, no symbols)
-  const lettersOnly = /^[A-Za-z]+$/;
-  if (!lettersOnly.test(username)) {
+  // 3️⃣ Length validation (3–20 characters)
+  if (username.length < 3 || username.length > 20) {
     return res.status(400).json({
-      error: 'Username must contain letters only'
+      error: 'Username must be between 3 and 20 characters'
     });
   }
 
-  // ✅ Normalize to John format
-  username = username.toLowerCase();
-  username =
-    username.charAt(0).toUpperCase() +
-    username.slice(1);
+  // 4️⃣ Letters + spaces only (no numbers, no symbols)
+  const validPattern = /^[A-Za-z ]+$/;
+  if (!validPattern.test(username)) {
+    return res.status(400).json({
+      error: 'Username can contain letters and spaces only'
+    });
+  }
+
+  // 5️⃣ Normalize: Capitalize each word
+  username = username
+    .toLowerCase()
+    .split(' ')
+    .map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    )
+    .join(' ');
 
   try {
 
-    // 🔒 Case-insensitive duplicate check
+    // 6️⃣ Case-insensitive duplicate check
     const existing = await pool.query(
-      'SELECT * FROM users WHERE LOWER(username)=LOWER($1)',
+      'SELECT id FROM users WHERE LOWER(username)=LOWER($1)',
       [username]
     );
 
-    if (existing.rows.length > 0)
+    if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Username exists' });
+    }
 
+    // 7️⃣ Insert new user
     const user = await pool.query(
       'INSERT INTO users (username, profile_picture) VALUES ($1,$2) RETURNING id, username',
       [username, profile_picture || null]
     );
 
-    res.status(201).json({ user: user.rows[0] });
+    return res.status(201).json({ user: user.rows[0] });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Register error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // ------------------- Upload Avatar -------------------
 app.post('/upload-avatar', async (req, res) => {
