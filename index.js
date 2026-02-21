@@ -44,6 +44,18 @@ const connectedUsers = new Map();
       )
     `);
 
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_requests (
+    id SERIAL PRIMARY KEY,
+    from_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (from_user_id, to_user_id)
+    )
+    `);
+   
+
     console.log("Tables ensured in Postgres");
 
   } catch (err) {
