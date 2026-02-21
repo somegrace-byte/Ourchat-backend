@@ -298,6 +298,84 @@ wss.on('connection', (ws) => {
         }
       }
 
+        if (data.type === 'chat_request') {
+
+        try {
+
+          if (data.fromUserId === data.toUserId) return;
+
+          await pool.query(
+            `INSERT INTO chat_requests (from_user_id, to_user_id)
+             VALUES ($1,$2)
+             ON CONFLICT (from_user_id, to_user_id)
+             DO NOTHING`,
+            [data.fromUserId, data.toUserId]
+          );
+
+          const receiverSocket = connectedUsers.get(data.toUserId);
+
+          if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+            receiverSocket.send(JSON.stringify({
+              type: "chat_request_received",
+              fromUserId: data.fromUserId
+            }));
+          }
+
+        } catch (err) {
+          console.error("Chat request error:", err);
+        }
+      }
+
+
+  if (data.type === 'chat_request_accept') {
+
+  try {
+
+    await pool.query(
+      `UPDATE chat_requests
+       SET status='accepted'
+       WHERE from_user_id=$1 AND to_user_id=$2`,
+      [data.fromUserId, data.toUserId]
+    );
+
+    const users = await pool.query(
+      `SELECT id, username FROM users WHERE id=$1 OR id=$2`,
+      [data.fromUserId, data.toUserId]
+    );
+
+    const userMap = {};
+    users.rows.forEach(u => {
+      userMap[u.id] = u.username;
+    });
+
+    const senderSocket = connectedUsers.get(data.fromUserId);
+    const receiverSocket = connectedUsers.get(data.toUserId);
+
+    if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+      senderSocket.send(JSON.stringify({
+        type: "chat_request_accepted",
+        otherUserId: data.toUserId,
+        username: userMap[data.toUserId]
+      }));
+    }
+
+    if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+      receiverSocket.send(JSON.stringify({
+        type: "chat_request_accepted",
+        otherUserId: data.fromUserId,
+        username: userMap[data.fromUserId]
+      }));
+    }
+
+  } catch (err) {
+    console.error("Chat accept error:", err);
+  }
+}
+
+
+
+      
+      
       if (data.type === 'message') {
 
         await pool.query(
