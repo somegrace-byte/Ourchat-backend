@@ -298,33 +298,60 @@ wss.on('connection', (ws) => {
         }
       }
 
-        if (data.type === 'chat_request') {
+      if (data.type === 'chat_request') {
 
-        try {
+      try {
 
-          if (data.fromUserId === data.toUserId) return;
+     if (data.fromUserId === data.toUserId) return;
 
-          await pool.query(
-            `INSERT INTO chat_requests (from_user_id, to_user_id)
-             VALUES ($1,$2)
-             ON CONFLICT (from_user_id, to_user_id)
-             DO NOTHING`,
-            [data.fromUserId, data.toUserId]
-          );
+  const existing = await pool.query(
+    `SELECT status FROM chat_requests
+     WHERE (from_user_id=$1 AND to_user_id=$2)
+        OR (from_user_id=$2 AND to_user_id=$1)`,
+    [data.fromUserId, data.toUserId]
+  );
 
-          const receiverSocket = connectedUsers.get(data.toUserId);
+  if (existing.rows.length > 0) {
 
-          if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
-            receiverSocket.send(JSON.stringify({
-              type: "chat_request_received",
-              fromUserId: data.fromUserId
-            }));
-          }
+    const status = existing.rows[0].status;
 
-        } catch (err) {
-          console.error("Chat request error:", err);
-        }
+    // If already accepted → tell sender to open chat
+    if (status === 'accepted') {
+
+      const senderSocket = connectedUsers.get(data.fromUserId);
+
+      if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+        senderSocket.send(JSON.stringify({
+          type: "chat_already_active",
+          otherUserId: data.toUserId
+        }));
       }
+    }
+
+    // If pending → do nothing
+    return;
+  }
+
+  // No existing request → create new one
+  await pool.query(
+    `INSERT INTO chat_requests (from_user_id, to_user_id)
+     VALUES ($1,$2)`,
+    [data.fromUserId, data.toUserId]
+  );
+
+  const receiverSocket = connectedUsers.get(data.toUserId);
+
+  if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+    receiverSocket.send(JSON.stringify({
+      type: "chat_request_received",
+      fromUserId: data.fromUserId
+    }));
+  }
+
+} catch (err) {
+  console.error("Chat request error:", err);
+} 
+}
 
 
   if (data.type === 'chat_request_accept') {
