@@ -246,6 +246,37 @@ app.get('/messages/:user1/:user2', async (req, res) => {
   }
 });
 
+// ------------------- Get Conversations -------------------
+app.get('/conversations/:userId', async (req, res) => {
+  try {
+
+    const result = await pool.query(
+      `SELECT 
+         CASE 
+           WHEN c.user1_id = $1 THEN c.user2_id
+           ELSE c.user1_id
+         END AS other_user_id,
+         u.username
+       FROM conversations c
+       JOIN users u 
+         ON u.id = CASE 
+                     WHEN c.user1_id = $1 THEN c.user2_id
+                     ELSE c.user1_id
+                   END
+       WHERE c.user1_id = $1 OR c.user2_id = $1`,
+      [req.params.userId]
+    );
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
 // ------------------- Delete User -------------------
 app.delete('/users/:id', async (req, res) => {
   try {
