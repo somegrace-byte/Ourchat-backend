@@ -252,29 +252,23 @@ app.get('/conversations/:userId', async (req, res) => {
 
     const result = await pool.query(
       `SELECT 
-         CASE 
-           WHEN c.user1_id = $1 THEN c.user2_id
-           ELSE c.user1_id
-         END AS other_user_id,
+         u.id AS other_user_id,
          u.username
        FROM conversations c
        JOIN users u 
-         ON u.id = CASE 
-                     WHEN c.user1_id = $1 THEN c.user2_id
-                     ELSE c.user1_id
-                   END
-       WHERE c.user1_id = $1 OR c.user2_id = $1`,
+         ON u.id = c.user1_id OR u.id = c.user2_id
+       WHERE (c.user1_id = $1 OR c.user2_id = $1)
+       AND u.id != $1`,
       [req.params.userId]
     );
 
     res.json(result.rows);
 
   } catch (err) {
-    console.error(err);
+    console.error("Conversations route error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 
 // ------------------- Delete User -------------------
