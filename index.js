@@ -339,14 +339,26 @@ wss.on('connection', (ws) => {
     [data.fromUserId, data.toUserId]
   );
 
-  const receiverSocket = connectedUsers.get(data.toUserId);
+  // Get sender username from database
+const senderResult = await pool.query(
+  `SELECT username FROM users WHERE id=$1`,
+  [data.fromUserId]
+);
 
-  if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
-    receiverSocket.send(JSON.stringify({
-      type: "chat_request_received",
-      fromUserId: data.fromUserId
-    }));
-  }
+const senderUsername =
+  senderResult.rows.length > 0
+    ? senderResult.rows[0].username
+    : "User";
+
+const receiverSocket = connectedUsers.get(data.toUserId);
+
+if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+  receiverSocket.send(JSON.stringify({
+    type: "chat_request_received",
+    fromUserId: data.fromUserId,
+    username: senderUsername
+  }));
+}
 
 } catch (err) {
   console.error("Chat request error:", err);
