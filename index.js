@@ -399,6 +399,18 @@ if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
       [data.fromUserId, data.toUserId]
     );
 
+// Create permanent conversation
+const userA = Math.min(data.fromUserId, data.toUserId);
+const userB = Math.max(data.fromUserId, data.toUserId);
+
+await pool.query(
+  `INSERT INTO conversations (user1_id, user2_id)
+   VALUES ($1, $2)
+   ON CONFLICT DO NOTHING`,
+  [userA, userB]
+);
+
+    
     const users = await pool.query(
       `SELECT id, username FROM users WHERE id=$1 OR id=$2`,
       [data.fromUserId, data.toUserId]
