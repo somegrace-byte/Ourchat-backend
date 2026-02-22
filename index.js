@@ -129,6 +129,28 @@ app.post('/register', async (req, res) => {
 });
 
 
+app.get('/chat-requests/:userId', async (req, res) => {
+
+  try {
+
+    const result = await pool.query(
+      `SELECT cr.from_user_id, u.username
+       FROM chat_requests cr
+       JOIN users u ON cr.from_user_id = u.id
+       WHERE cr.to_user_id = $1
+       AND cr.status = 'pending'
+       ORDER BY cr.created_at DESC`,
+      [req.params.userId]
+    );
+
+    res.json(result.rows);
+
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 // ------------------- Upload Avatar -------------------
 app.post('/upload-avatar', async (req, res) => {
   const { userId, image } = req.body;
