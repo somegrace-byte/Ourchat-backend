@@ -54,7 +54,54 @@ const connectedUsers = new Map();
     UNIQUE (from_user_id, to_user_id)
     )
     `);
-   
+
+
+  //CASCADE USER DELETE INFORMATION
+
+    // ------------------- Ensure Conversations Cascade -------------------
+
+await pool.query(`
+  DO $$
+  BEGIN
+
+    -- Drop existing foreign key on user1_id if it exists
+    IF EXISTS (
+      SELECT 1 FROM information_schema.table_constraints
+      WHERE constraint_name = 'conversations_user1_id_fkey'
+    ) THEN
+      ALTER TABLE conversations
+      DROP CONSTRAINT conversations_user1_id_fkey;
+    END IF;
+
+    -- Drop existing foreign key on user2_id if it exists
+    IF EXISTS (
+      SELECT 1 FROM information_schema.table_constraints
+      WHERE constraint_name = 'conversations_user2_id_fkey'
+    ) THEN
+      ALTER TABLE conversations
+      DROP CONSTRAINT conversations_user2_id_fkey;
+    END IF;
+
+    -- Recreate with ON DELETE CASCADE
+    ALTER TABLE conversations
+    ADD CONSTRAINT conversations_user1_id_fkey
+    FOREIGN KEY (user1_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE;
+
+    ALTER TABLE conversations
+    ADD CONSTRAINT conversations_user2_id_fkey
+    FOREIGN KEY (user2_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE;
+
+  END
+  $$;
+  `);
+  
+  //END CASCADE DELETE
+
+    
 
     console.log("Tables ensured in Postgres");
 
