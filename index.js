@@ -333,9 +333,21 @@ app.delete('/users/:id', async (req, res) => {
     );
 
     if (result.rowCount === 0)
-      return res.status(404).json({ error: 'User not found' });
+  return res.status(404).json({ error: 'User not found' });
 
-    res.json({ message: 'User deleted successfully' });
+// 🔥 Broadcast user deletion to all connected clients
+const deletedUserId = parseInt(req.params.id);
+
+connectedUsers.forEach((clientSocket) => {
+  if (clientSocket.readyState === WebSocket.OPEN) {
+    clientSocket.send(JSON.stringify({
+      type: "user_deleted",
+      deletedUserId: deletedUserId
+    }));
+  }
+});
+
+res.json({ message: 'User deleted successfully' });
 
   } catch (err) {
     console.error(err);
