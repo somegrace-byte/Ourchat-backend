@@ -338,6 +338,7 @@ app.delete('/users/:id', async (req, res) => {
 // 🔥 Broadcast user deletion to all connected clients
 const deletedUserId = parseInt(req.params.id);
 
+// Notify all connected users
 connectedUsers.forEach((clientSocket) => {
   if (clientSocket.readyState === WebSocket.OPEN) {
     clientSocket.send(JSON.stringify({
@@ -346,6 +347,14 @@ connectedUsers.forEach((clientSocket) => {
     }));
   }
 });
+
+// 🔥 Force close deleted user's socket (if connected)
+const deletedSocket = connectedUsers.get(deletedUserId);
+
+if (deletedSocket) {
+  deletedSocket.terminate();
+  connectedUsers.delete(deletedUserId);
+}
 
 res.json({ message: 'User deleted successfully' });
 
