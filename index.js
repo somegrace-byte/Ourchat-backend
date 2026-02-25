@@ -540,22 +540,48 @@ await pool.query(
 
 
 
+ //MESSAGE SECTION     
       
-      
-      if (data.type === 'message') {
+if (data.type === 'message') {
 
-        await pool.query(
-          `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
-           VALUES ($1,$2,$3,$4,false)`,
-          [data.messageId, data.text, data.senderId, data.receiverId]
-        );
+  try {
 
-        const receiverSocket = connectedUsers.get(data.receiverId);
+    const userCheck = await pool.query(
+      'SELECT id FROM users WHERE id=$1',
+      [data.receiverId]
+    );
 
-        if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
-          receiverSocket.send(JSON.stringify(data));
-        }
+    if (userCheck.rows.length === 0) {
+
+      const senderSocket = connectedUsers.get(data.senderId);
+
+      if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+        senderSocket.send(JSON.stringify({
+          type: "user_not_found",
+          receiverId: data.receiverId
+        }));
       }
+
+      return;
+    }
+
+    await pool.query(
+      `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
+       VALUES ($1,$2,$3,$4,false)`,
+      [data.messageId, data.text, data.senderId, data.receiverId]
+    );
+
+    const receiverSocket = connectedUsers.get(data.receiverId);
+
+    if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+      receiverSocket.send(JSON.stringify(data));
+    }
+
+  } catch (err) {
+    console.error("Message error:", err);
+  }
+}
+      //END MESSAGE SECTION
 
       if (data.type === 'ack') {
 
