@@ -617,6 +617,7 @@ try {
 } catch (err) {
   console.error("Message error:", err);
 }
+}
 
 // ------------------- Leave Chat -------------------
 
