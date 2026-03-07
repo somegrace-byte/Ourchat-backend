@@ -581,6 +581,50 @@ if (data.type === 'message') {
     console.error("Message error:", err);
   }
 }
+
+// ------------------- Leave Chat -------------------
+
+if (data.type === 'leave_chat') {
+
+  try {
+
+    const userA = Math.min(data.senderId, data.receiverId);
+    const userB = Math.max(data.senderId, data.receiverId);
+
+    // Remove conversation
+    await pool.query(
+      `DELETE FROM conversations
+       WHERE user1_id=$1 AND user2_id=$2`,
+      [userA, userB]
+    );
+
+    // Notify both users
+    const senderSocket = connectedUsers.get(data.senderId);
+    const receiverSocket = connectedUsers.get(data.receiverId);
+
+    const payload = JSON.stringify({
+      type: "chat_closed",
+      receiverId: data.receiverId
+    });
+
+    if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+      senderSocket.send(payload);
+    }
+
+    if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+      receiverSocket.send(JSON.stringify({
+        type: "chat_closed",
+        receiverId: data.senderId
+      }));
+    }
+
+  } catch (err) {
+    console.error("Leave chat error:", err);
+  }
+}
+
+
+      
       //END MESSAGE SECTION
 
       if (data.type === 'ack') {
