@@ -598,6 +598,14 @@ if (data.type === 'leave_chat') {
       [userA, userB]
     );
 
+  // 🔥 Remove chat request so users can start a new chat later
+    await pool.query(
+  `DELETE FROM chat_requests
+   WHERE (from_user_id=$1 AND to_user_id=$2)
+      OR (from_user_id=$2 AND to_user_id=$1)`,
+  [data.senderId, data.receiverId]
+    ); 
+
     // Notify both users
     const senderSocket = connectedUsers.get(data.senderId);
     const receiverSocket = connectedUsers.get(data.receiverId);
