@@ -607,15 +607,15 @@ await pool.query(
 
 
  //MESSAGE SECTION 
-// Insert message
-await pool.query(
-  `
-  INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
-  VALUES ($1, $2, $3, $4, false)
-  ON CONFLICT DO NOTHING
-  `,
-  [data.messageId, data.text, data.senderId, data.receiverId]
-);
+
+if (data.type === 'message') {
+
+try {
+
+  const userCheck = await pool.query(
+    'SELECT id FROM users WHERE id=$1',
+    [data.receiverId]
+  );
 
   // User deleted
   if (userCheck.rows.length === 0) {
@@ -657,10 +657,13 @@ await pool.query(
     return;
   }
 
-  // Insert message
+    // Insert message (SAFE VERSION)
   await pool.query(
-    `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
-     VALUES ($1,$2,$3,$4,false)`,
+    `
+    INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
+    VALUES ($1, $2, $3, $4, false)
+    ON CONFLICT DO NOTHING
+    `,
     [data.messageId, data.text, data.senderId, data.receiverId]
   );
 
@@ -673,6 +676,7 @@ await pool.query(
 } catch (err) {
   console.error("Message error:", err);
 }
+
 }
 
 // ------------------- Leave Chat -------------------
