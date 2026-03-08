@@ -124,6 +124,8 @@ await pool.query(`
 // ===================== HTTP ROUTES =====================
 // =======================================================
 
+
+
 app.post('/register', async (req, res) => {
   let { username, profile_picture } = req.body;
 
@@ -326,6 +328,49 @@ app.get('/conversations/:userId', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+
+// ------------------- Check Messages (Notifications) -------------------
+
+app.get('/checkMessages', async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+      SELECT text, sender_id
+      FROM messages
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    if (result.rows.length > 0) {
+
+      const sender = await pool.query(
+        'SELECT username FROM users WHERE id=$1',
+        [result.rows[0].sender_id]
+      );
+
+      res.json({
+        newMessages: true,
+        sender: sender.rows[0].username,
+        message: result.rows[0].text
+      });
+
+    } else {
+
+      res.json({ newMessages: false });
+
+    }
+
+  } catch (err) {
+
+    console.error("Check messages error:", err);
+    res.json({ newMessages: false });
+
+  }
+
+});
+
 
 
 // ------------------- Delete User -------------------
