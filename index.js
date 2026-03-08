@@ -337,6 +337,10 @@ app.get('/checkMessages', async (req, res) => {
   const userId = req.query.userId;
   const lastId = req.query.lastId || '';
 
+  if (!userId) {
+  return res.json({ newMessages: false });
+  }
+  
   try {
 
     const result = await pool.query(
