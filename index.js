@@ -608,14 +608,13 @@ await pool.query(
 
  //MESSAGE SECTION     
       
-if (data.type === 'message') {
-
-try {
-
-  const userCheck = await pool.query(
-    'SELECT id FROM users WHERE id=$1',
-    [data.receiverId]
-  );
+// Insert message
+await pool.query(
+  `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
+   VALUES ($1,$2,$3,$4,false)
+   ON CONFLICT (id) DO NOTHING`,
+  [data.messageId, data.text, data.senderId, data.receiverId]
+);
 
   // User deleted
   if (userCheck.rows.length === 0) {
