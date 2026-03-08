@@ -606,13 +606,14 @@ await pool.query(
 
 
 
- //MESSAGE SECTION     
-      
+ //MESSAGE SECTION 
 // Insert message
 await pool.query(
-  `INSERT INTO messages (id,text,sender_id,receiver_id,delivered)
-   VALUES ($1,$2,$3,$4,false)
-   ON CONFLICT DO NOTHING`,
+  `
+  INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
+  VALUES ($1, $2, $3, $4, false)
+  ON CONFLICT DO NOTHING
+  `,
   [data.messageId, data.text, data.senderId, data.receiverId]
 );
 
