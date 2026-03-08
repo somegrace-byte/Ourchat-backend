@@ -361,6 +361,13 @@ app.get('/checkMessages', async (req, res) => {
         [result.rows[0].sender_id]
       );
 
+        await pool.query(
+       `UPDATE messages
+       SET delivered = true
+       WHERE id = $1`,
+      [result.rows[0].id]
+      );      
+
       res.json({
         newMessages: true,
         sender: sender.rows[0].username,
