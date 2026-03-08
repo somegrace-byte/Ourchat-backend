@@ -334,14 +334,18 @@ app.get('/conversations/:userId', async (req, res) => {
 
 app.get('/checkMessages', async (req, res) => {
 
+  const lastId = req.query.lastId || '';
+
   try {
 
-    const result = await pool.query(`
-      SELECT text, sender_id
-      FROM messages
-      ORDER BY created_at DESC
-      LIMIT 1
-    `);
+    const result = await pool.query(
+      `SELECT text, sender_id, id
+       FROM messages
+       WHERE id != $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [lastId]
+    );
 
     if (result.rows.length > 0) {
 
@@ -350,13 +354,14 @@ app.get('/checkMessages', async (req, res) => {
         [result.rows[0].sender_id]
       );
 
-    res.json({
-    newMessages: true,
-    sender: sender.rows[0].username,
-    senderId: result.rows[0].sender_id,
-    message: result.rows[0].text
-    });
-      
+      res.json({
+        newMessages: true,
+        sender: sender.rows[0].username,
+        senderId: result.rows[0].sender_id,
+        message: result.rows[0].text,
+        messageId: result.rows[0].id
+      });
+
     } else {
 
       res.json({ newMessages: false });
