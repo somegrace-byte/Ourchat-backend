@@ -347,6 +347,7 @@ app.get('/checkMessages', async (req, res) => {
       `SELECT text, sender_id, id
        FROM messages
        WHERE receiver_id = $1
+       AND delivered = false
        AND id != $2
        ORDER BY created_at DESC
        LIMIT 1`,
