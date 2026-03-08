@@ -334,6 +334,7 @@ app.get('/conversations/:userId', async (req, res) => {
 
 app.get('/checkMessages', async (req, res) => {
 
+  const userId = req.query.userId;
   const lastId = req.query.lastId || '';
 
   try {
@@ -341,10 +342,11 @@ app.get('/checkMessages', async (req, res) => {
     const result = await pool.query(
       `SELECT text, sender_id, id
        FROM messages
-       WHERE id != $1
+       WHERE receiver_id = $1
+       AND id != $2
        ORDER BY created_at DESC
        LIMIT 1`,
-      [lastId]
+      [userId, lastId]
     );
 
     if (result.rows.length > 0) {
@@ -376,7 +378,6 @@ app.get('/checkMessages', async (req, res) => {
   }
 
 });
-
 
 
 // ------------------- Delete User -------------------
