@@ -350,12 +350,13 @@ app.get('/checkMessages', async (req, res) => {
         [result.rows[0].sender_id]
       );
 
-      res.json({
-        newMessages: true,
-        sender: sender.rows[0].username,
-        message: result.rows[0].text
-      });
-
+    res.json({
+    newMessages: true,
+    sender: sender.rows[0].username,
+    senderId: result.rows[0].sender_id,
+    message: result.rows[0].text
+    });
+      
     } else {
 
       res.json({ newMessages: false });
