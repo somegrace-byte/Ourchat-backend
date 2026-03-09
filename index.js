@@ -297,8 +297,16 @@ app.get('/messages/:user1/:user2', async (req, res) => {
       [req.params.user1, req.params.user2]
     );
 
-    res.json(result.rows);
-
+    res.json(
+  result.rows.map(m => ({
+    id: m.id,
+    text: m.text,
+    sender_id: m.sender_id,
+    receiver_id: m.receiver_id,
+    timestamp: new Date(m.created_at).getTime()
+  }))
+);
+    
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
