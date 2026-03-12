@@ -683,7 +683,7 @@ try {
     `
     INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
     VALUES ($1, $2, $3, $4, false)
-    ON CONFLICT DO NOTHING
+    ON CONFLICT (id) DO NOTHING
     `,
     [data.messageId, data.text, data.senderId, data.receiverId]
   );
