@@ -506,6 +506,20 @@ wss.on('connection', (ws) => {
 
      if (data.fromUserId === data.toUserId) return;
 
+  // Check if receiver blocked sender
+const blockedCheck = await pool.query(
+  `SELECT 1
+   FROM blocked_users
+   WHERE blocker_id=$1 AND blocked_id=$2`,
+  [data.toUserId, data.fromUserId]
+);
+
+if (blockedCheck.rows.length > 0) {
+  return; // silently ignore the request
+}
+
+  //END BLOCK CHAT REQUEST
+        
   const existing = await pool.query(
     `SELECT status FROM chat_requests
      WHERE (from_user_id=$1 AND to_user_id=$2)
