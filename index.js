@@ -639,6 +639,32 @@ await pool.query(
   }
 }
 
+// ------------------- Block User -------------------
+
+if (data.type === 'block_user') {
+
+  try {
+
+    await pool.query(
+      `INSERT INTO blocked_users (blocker_id, blocked_id)
+       VALUES ($1,$2)
+       ON CONFLICT DO NOTHING`,
+      [data.blockerId, data.blockedId]
+    );
+
+    // Remove any pending requests between users
+    await pool.query(
+      `DELETE FROM chat_requests
+       WHERE (from_user_id=$1 AND to_user_id=$2)
+          OR (from_user_id=$2 AND to_user_id=$1)`,
+      [data.blockerId, data.blockedId]
+    );
+
+  } catch (err) {
+    console.error("Block user error:", err);
+  }
+
+}
 
 //CHAT REQUEST DECLINE
 if (data.type === 'chat_request_decline') {
