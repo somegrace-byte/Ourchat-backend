@@ -626,6 +626,25 @@ await pool.query(
 }
 
 
+//CHAT REQUEST DECLINE
+if (data.type === 'chat_request_decline') {
+
+  try {
+
+    await pool.query(
+      `DELETE FROM chat_requests
+       WHERE from_user_id=$1 AND to_user_id=$2`,
+      [data.fromUserId, data.toUserId]
+    );
+
+    console.log("Chat request declined:", data.fromUserId, "->", data.toUserId);
+
+  } catch (err) {
+    console.error("Chat decline error:", err);
+  }
+
+}
+      
 
  //MESSAGE SECTION 
 
