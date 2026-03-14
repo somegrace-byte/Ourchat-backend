@@ -338,6 +338,34 @@ app.get('/conversations/:userId', async (req, res) => {
 });
 
 
+// ------------------- Get Blocked Users -------------------
+
+app.get('/blocked-users/:userId', async (req, res) => {
+
+  try {
+
+    const result = await pool.query(
+      `SELECT 
+         bu.blocked_id AS blocked_user_id,
+         u.username
+       FROM blocked_users bu
+       JOIN users u ON u.id = bu.blocked_id
+       WHERE bu.blocker_id = $1
+       ORDER BY u.username`,
+      [req.params.userId]
+    );
+
+    res.json(result.rows);
+
+  } catch (err) {
+
+    console.error("Blocked users route error:", err);
+    res.status(500).json({ error: "Server error" });
+
+  }
+
+});
+
 // ------------------- Check Messages (Notifications) -------------------
 
 app.get('/checkMessages', async (req, res) => {
