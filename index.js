@@ -706,6 +706,13 @@ if (data.type === 'unblock_user') {
       [data.blockerId, data.blockedId]
     );
 
+    await pool.query(
+      `DELETE FROM chat_requests
+       WHERE (from_user_id=$1 AND to_user_id=$2)
+          OR (from_user_id=$2 AND to_user_id=$1)`,
+      [data.blockerId, data.blockedId]
+    );
+
   } catch (err) {
     console.error("Unblock user error:", err);
   }
