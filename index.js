@@ -694,6 +694,25 @@ if (data.type === 'block_user') {
 
 }
 
+// ------------------- Unblock User -------------------
+
+if (data.type === 'unblock_user') {
+
+  try {
+
+    await pool.query(
+      `DELETE FROM blocked_users
+       WHERE blocker_id=$1 AND blocked_id=$2`,
+      [data.blockerId, data.blockedId]
+    );
+
+  } catch (err) {
+    console.error("Unblock user error:", err);
+  }
+
+}
+      
+
 //CHAT REQUEST DECLINE
 if (data.type === 'chat_request_decline') {
 
