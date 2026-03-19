@@ -366,20 +366,20 @@ app.get('/blocked-users/:userId', async (req, res) => {
 
 });
 
-// ------------------- Check Messages (Notifications) -------------------
-
+// ------------------- Check Messages + Chat Requests (Notifications) -------------------
 app.get('/checkMessages', async (req, res) => {
 
   const userId = req.query.userId;
   const lastId = req.query.lastId || '';
 
   if (!userId) {
-  return res.json({ newMessages: false });
+    return res.json({ type: "none" });
   }
-  
+
   try {
 
-    const result = await pool.query(
+    // ------------------- CHECK MESSAGES -------------------
+    const messageResult = await pool.query(
       `SELECT text, sender_id, id
        FROM messages
        WHERE receiver_id = $1
@@ -390,44 +390,66 @@ app.get('/checkMessages', async (req, res) => {
       [userId, lastId]
     );
 
-    if (result.rows.length > 0) {
+    if (messageResult.rows.length > 0) {
+
+      const msg = messageResult.rows[0];
 
       const sender = await pool.query(
         'SELECT username FROM users WHERE id=$1',
-        [result.rows[0].sender_id]
+        [msg.sender_id]
       );
-
-        await pool.query(
-       `UPDATE messages
-       SET delivered = true
-       WHERE id = $1`,
-      [result.rows[0].id]
-      );      
-
-      res.json({
-        newMessages: true,
-        sender: sender.rows[0].username,
-        senderId: result.rows[0].sender_id,
-        message: result.rows[0].text,
-        messageId: result.rows[0].id
-      });
 
       await pool.query(
-     `UPDATE messages SET delivered = true WHERE id = $1`,
-      [result.rows[0].id]
+        `UPDATE messages SET delivered = true WHERE id = $1`,
+        [msg.id]
       );
 
-    } else {
-
-      res.json({ newMessages: false });
-
+      return res.json({
+        type: "message",
+        sender: sender.rows[0].username,
+        senderId: msg.sender_id,
+        message: msg.text,
+        messageId: msg.id
+      });
     }
 
+    // ------------------- CHECK CHAT REQUESTS -------------------
+    const requestResult = await pool.query(
+      `SELECT cr.from_user_id, u.username
+       FROM chat_requests cr
+       JOIN users u ON cr.from_user_id = u.id
+       WHERE cr.to_user_id = $1
+       AND cr.status = 'pending'
+       AND cr.notified = false
+       ORDER BY cr.created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (requestResult.rows.length > 0) {
+
+      const reqData = requestResult.rows[0];
+
+      await pool.query(
+        `UPDATE chat_requests
+         SET notified = true
+         WHERE from_user_id = $1 AND to_user_id = $2`,
+        [reqData.from_user_id, userId]
+      );
+
+      return res.json({
+        type: "chat_request",
+        sender: reqData.username,
+        senderId: reqData.from_user_id
+      });
+    }
+
+    // ------------------- NOTHING -------------------
+    res.json({ type: "none" });
+
   } catch (err) {
-
     console.error("Check messages error:", err);
-    res.json({ newMessages: false });
-
+    res.json({ type: "none" });
   }
 
 });
