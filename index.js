@@ -11,6 +11,7 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '5mb' }));
+app.use('/uploads', express.static('uploads'));
 
 // ------------------- PostgreSQL -------------------
 const pool = new Pool({
