@@ -236,6 +236,37 @@ app.post('/upload-avatar', async (req, res) => {
   }
 });
 
+
+//UPLOAD IMAGE
+const fs = require('fs');
+const path = require('path');
+
+app.post('/upload-image', async (req, res) => {
+  try {
+    const { image } = req.body;
+
+    if (!image) {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+
+    const filename = `${Date.now()}.jpg`;
+    const filePath = path.join(__dirname, 'uploads', filename);
+
+    fs.writeFileSync(filePath, base64Data, 'base64');
+
+    res.json({
+      imagePath: `/uploads/${filename}`
+    });
+
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+
 // ------------------- Get Users -------------------
 app.get('/users', async (req, res) => {
   try {
