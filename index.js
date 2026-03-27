@@ -848,11 +848,18 @@ try {
     // Insert message (SAFE VERSION)
   await pool.query(
     `
-    INSERT INTO messages (id, text, sender_id, receiver_id, delivered)
-    VALUES ($1, $2, $3, $4, false)
+    INSERT INTO messages (id, text, sender_id, receiver_id, delivered, type, image_path)
+    VALUES ($1, $2, $3, $4, false, $5, $6)
     ON CONFLICT (id) DO NOTHING
     `,
-    [data.messageId, data.text, data.senderId, data.receiverId]
+  [
+  data.messageId,
+  data.text || '',
+  data.senderId,
+  data.receiverId,
+  data.messageType || 'text',
+  data.imagePath || null
+  ]
   );
 
   const receiverSocket = connectedUsers.get(data.receiverId);
