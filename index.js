@@ -330,11 +330,13 @@ app.get('/messages/:user1/:user2', async (req, res) => {
     );
 
     res.json(
-  result.rows.map(m => ({
+    result.rows.map(m => ({
     id: m.id,
     text: m.text,
     sender_id: m.sender_id,
     receiver_id: m.receiver_id,
+    image: m.image_path,   // 🔥 ADD THIS
+    type: m.type,          // 🔥 ADD THIS
     timestamp: new Date(m.created_at).getTime()
   }))
 );
