@@ -997,3 +997,46 @@ setInterval(() => {
   });
 
 }, 30000);
+
+
+
+// ------------------- CLEANUP OLD IMAGE MESSAGES -------------------
+setInterval(async () => {
+  try {
+
+    // 1️⃣ Get old image messages (older than 1 hour)
+    const result = await pool.query(`
+      SELECT id, image_path
+      FROM messages
+      WHERE image_path IS NOT NULL
+      AND created_at < NOW() - INTERVAL '1 hour'
+    `);
+
+    for (const msg of result.rows) {
+
+      // 2️⃣ Delete file from disk (if exists)
+      if (msg.image_path) {
+        const filePath = require('path').join(__dirname, msg.image_path);
+
+        require('fs').unlink(filePath, (err) => {
+          if (err) {
+            console.log("File delete failed (may already be gone):", filePath);
+          }
+        });
+      }
+
+      // 3️⃣ Delete message from DB
+      await pool.query(
+        `DELETE FROM messages WHERE id = $1`,
+        [msg.id]
+      );
+    }
+
+    if (result.rows.length > 0) {
+      console.log(`Cleaned up ${result.rows.length} old image messages`);
+    }
+
+  } catch (err) {
+    console.error("Cleanup error:", err);
+  }
+}, 5 * 60 * 1000); // runs every 5 minutes
