@@ -860,7 +860,7 @@ try {
   data.senderId,
   data.receiverId,
   data.messageType || 'text',
-  data.imagePath || null
+  data.image || null
   ]
   );
 
