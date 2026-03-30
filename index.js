@@ -860,7 +860,7 @@ try {
   data.senderId,
   data.receiverId,
   data.messageType || 'text',
-  data.image || null
+  data.messageType === 'image' ? data.image : null
   ]
   );
 
