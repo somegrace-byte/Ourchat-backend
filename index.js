@@ -581,7 +581,7 @@ convoResult.rows.forEach(row => {
     partnerIds.add(row.user2_id);
   } else {
     partnerIds.add(row.user1_id);
-  }
+  }  
 });
 
 partnerIds.forEach(partnerId => {
@@ -593,7 +593,12 @@ partnerIds.forEach(partnerId => {
       userId: data.userID
     }));
   }
+
+
+  
 });
+
+
 //END show online status
         
         const undelivered = await pool.query(
@@ -614,6 +619,26 @@ partnerIds.forEach(partnerId => {
         }
       }
 
+// ------------------- Check Online Status -------------------
+if (data.type === 'check_online') {
+
+  const targetSocket = connectedUsers.get(data.userId);
+
+  if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: "user_online",
+      userId: data.userId
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: "user_offline",
+      userId: data.userId
+    }));
+  }
+
+}
+//END online status   
+      
       if (data.type === 'chat_request') {
 
       try {
