@@ -637,7 +637,35 @@ if (data.type === 'check_online') {
   }
 
 }
-//END online status   
+
+//Handle incoming online status request 
+
+if (data.type === 'check_user_status') {
+
+  const { requesterId, targetUserId } = data;
+
+  const targetSocket = connectedUsers.get(targetUserId);
+  const requesterSocket = connectedUsers.get(requesterId);
+
+  if (!requesterSocket || requesterSocket.readyState !== WebSocket.OPEN) return;
+
+  if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+
+    requesterSocket.send(JSON.stringify({
+      type: "user_online",
+      userId: targetUserId
+    }));
+
+  } else {
+
+    requesterSocket.send(JSON.stringify({
+      type: "user_offline",
+      userId: targetUserId
+    }));
+  }
+}
+
+//END status request 
       
       if (data.type === 'chat_request') {
 
