@@ -21,6 +21,7 @@ const pool = new Pool({
 
 // ------------------- Track Connected Users -------------------
 const connectedUsers = new Map();
+const userPresence = new Map(); 
 
 // ------------------- Tables Setup -------------------
 (async () => {
@@ -619,6 +620,77 @@ partnerIds.forEach(partnerId => {
         }
       }
 
+//Added background offline status
+      
+if (data.type === 'user_online') {
+
+  userPresence.set(data.userId, true);
+
+  // 🔥 notify chat partners
+  const convoResult = await pool.query(
+    `SELECT user1_id, user2_id
+     FROM conversations
+     WHERE user1_id = $1 OR user2_id = $1`,
+    [data.userId]
+  );
+
+  const partnerIds = new Set();
+
+  convoResult.rows.forEach(row => {
+    if (row.user1_id === data.userId) {
+      partnerIds.add(row.user2_id);
+    } else {
+      partnerIds.add(row.user1_id);
+    }
+  });
+
+  partnerIds.forEach(partnerId => {
+    const partnerSocket = connectedUsers.get(partnerId);
+
+    if (partnerSocket && partnerSocket.readyState === WebSocket.OPEN) {
+      partnerSocket.send(JSON.stringify({
+        type: "user_online",
+        userId: data.userId
+      }));
+    }
+  });
+}
+
+
+if (data.type === 'user_offline') {
+
+  userPresence.set(data.userId, false);
+
+  // 🔥 notify chat partners
+  const convoResult = await pool.query(
+    `SELECT user1_id, user2_id
+     FROM conversations
+     WHERE user1_id = $1 OR user2_id = $1`,
+    [data.userId]
+  );
+
+  const partnerIds = new Set();
+
+  convoResult.rows.forEach(row => {
+    if (row.user1_id === data.userId) {
+      partnerIds.add(row.user2_id);
+    } else {
+      partnerIds.add(row.user1_id);
+    }
+  });
+
+  partnerIds.forEach(partnerId => {
+    const partnerSocket = connectedUsers.get(partnerId);
+
+    if (partnerSocket && partnerSocket.readyState === WebSocket.OPEN) {
+      partnerSocket.send(JSON.stringify({
+        type: "user_offline",
+        userId: data.userId
+      }));
+    }
+  });
+}
+      
 // ------------------- Check Online Status -------------------
 if (data.type === 'check_online') {
 
@@ -649,7 +721,7 @@ if (data.type === 'check_user_status') {
 
   if (!requesterSocket || requesterSocket.readyState !== WebSocket.OPEN) return;
 
-  const isOnline = targetSocket && targetSocket.readyState === WebSocket.OPEN;
+  const isOnline = userPresence.get(targetUserId) === true;
 
   requesterSocket.send(JSON.stringify({
     type: "user_status",   // ✅ IMPORTANT CHANGE
