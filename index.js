@@ -415,12 +415,12 @@ app.get('/checkMessages', async (req, res) => {
 
     // ------------------- CHECK MESSAGES -------------------
     const messageResult = await pool.query(
-      `SELECT text, sender_id, id
+      'SELECT text, sender_id, id, created_at
        FROM messages
        WHERE receiver_id = $1
        AND delivered = false
        AND id != $2
-       ORDER BY created_at DESC
+       ORDER BY created_at ASC
        LIMIT 1`,
       [userId, lastId]
     );
@@ -444,7 +444,8 @@ app.get('/checkMessages', async (req, res) => {
         sender: sender.rows[0].username,
         senderId: msg.sender_id,
         message: msg.text,
-        messageId: msg.id
+        messageId: msg.id,
+        timestamp: new Date(msg.created_at).getTime()
       });
     }
 
