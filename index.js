@@ -649,20 +649,13 @@ if (data.type === 'check_user_status') {
 
   if (!requesterSocket || requesterSocket.readyState !== WebSocket.OPEN) return;
 
-  if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+  const isOnline = targetSocket && targetSocket.readyState === WebSocket.OPEN;
 
-    requesterSocket.send(JSON.stringify({
-      type: "user_online",
-      userId: targetUserId
-    }));
-
-  } else {
-
-    requesterSocket.send(JSON.stringify({
-      type: "user_offline",
-      userId: targetUserId
-    }));
-  }
+  requesterSocket.send(JSON.stringify({
+    type: "user_status",   // ✅ IMPORTANT CHANGE
+    userId: targetUserId,
+    online: isOnline
+  }));
 }
 
 //END status request 
