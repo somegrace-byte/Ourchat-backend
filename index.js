@@ -415,7 +415,7 @@ app.get('/checkMessages', async (req, res) => {
 
     // ------------------- CHECK MESSAGES -------------------
     const messageResult = await pool.query(
-       SELECT text, sender_id, id, created_at
+      `SELECT text, sender_id, id, created_at
        FROM messages
        WHERE receiver_id = $1
        AND delivered = false
