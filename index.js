@@ -566,6 +566,36 @@ wss.on('connection', (ws) => {
         ws.userID = data.userID;
         connectedUsers.set(data.userID, ws);
 
+   // 🔥 Notify only users who have a conversation with this user
+   const convoResult = await pool.query(
+  `SELECT user1_id, user2_id
+   FROM conversations
+   WHERE user1_id = $1 OR user2_id = $1`,
+  [data.userID]
+  );
+
+const partnerIds = new Set();
+
+convoResult.rows.forEach(row => {
+  if (row.user1_id === data.userID) {
+    partnerIds.add(row.user2_id);
+  } else {
+    partnerIds.add(row.user1_id);
+  }
+});
+
+partnerIds.forEach(partnerId => {
+  const partnerSocket = connectedUsers.get(partnerId);
+
+  if (partnerSocket && partnerSocket.readyState === WebSocket.OPEN) {
+    partnerSocket.send(JSON.stringify({
+      type: "user_online",
+      userId: data.userID
+    }));
+  }
+});
+//END show online status
+        
         const undelivered = await pool.query(
           `SELECT * FROM messages
            WHERE receiver_id=$1 AND delivered=false
