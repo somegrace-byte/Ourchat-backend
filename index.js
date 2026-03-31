@@ -993,8 +993,48 @@ if (data.type === 'leave_chat') {
 
     // Only remove mapping if THIS socket is still the active one
     if (current === ws) {
-      connectedUsers.delete(ws.userID);
-      console.log("Socket removed for user:", ws.userID);
+
+  // 🔥 Notify chat partners that user is offline
+  (async () => {
+    try {
+
+      const convoResult = await pool.query(
+        `SELECT user1_id, user2_id
+         FROM conversations
+         WHERE user1_id = $1 OR user2_id = $1`,
+        [ws.userID]
+      );
+
+      const partnerIds = new Set();
+
+      convoResult.rows.forEach(row => {
+        if (row.user1_id === ws.userID) {
+          partnerIds.add(row.user2_id);
+        } else {
+          partnerIds.add(row.user1_id);
+        }
+      });
+
+      partnerIds.forEach(partnerId => {
+        const partnerSocket = connectedUsers.get(partnerId);
+
+        if (partnerSocket && partnerSocket.readyState === WebSocket.OPEN) {
+          partnerSocket.send(JSON.stringify({
+            type: "user_offline",
+            userId: ws.userID
+          }));
+        }
+      });
+
+    } catch (err) {
+      console.error("Offline broadcast error:", err);
+    }
+  })();
+
+  // ✅ Remove user AFTER notifying
+  connectedUsers.delete(ws.userID);
+
+  console.log("Socket removed for user:", ws.userID);
     }
   }
 });
