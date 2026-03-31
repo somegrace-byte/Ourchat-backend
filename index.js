@@ -721,8 +721,10 @@ if (data.type === 'check_user_status') {
 
   if (!requesterSocket || requesterSocket.readyState !== WebSocket.OPEN) return;
 
-  const isOnline = userPresence.get(targetUserId) === true;
-
+  const isOnline =
+  userPresence.get(targetUserId) === true ||
+  (connectedUsers.get(targetUserId)?.readyState === WebSocket.OPEN);
+  
   requesterSocket.send(JSON.stringify({
     type: "user_status",   // ✅ IMPORTANT CHANGE
     userId: targetUserId,
