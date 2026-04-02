@@ -420,7 +420,7 @@ app.get('/checkMessages', async (req, res) => {
        WHERE receiver_id = $1
        AND delivered = false
        AND id != $2
-       ORDER BY created_at ASC
+       ORDER BY created_at DESC
        LIMIT 1`,
       [userId, lastId]
     );
@@ -434,10 +434,13 @@ app.get('/checkMessages', async (req, res) => {
         [msg.sender_id]
       );
 
-      await pool.query(
-        `UPDATE messages SET delivered = true WHERE id = $1`,
-        [msg.id]
-      );
+    await pool.query(
+   `UPDATE messages 
+    SET delivered = true 
+    WHERE receiver_id = $1 
+    AND delivered = false`,
+   [userId]
+ );
 
       return res.json({
         type: "message",
