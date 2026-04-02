@@ -570,7 +570,7 @@ wss.on('connection', (ws) => {
 
         ws.userID = data.userID;
         connectedUsers.set(data.userID, ws);
-
+        userPresence.set(data.userID, false);
    // 🔥 Notify only users who have a conversation with this user
    const convoResult = await pool.query(
   `SELECT user1_id, user2_id
@@ -589,19 +589,20 @@ convoResult.rows.forEach(row => {
   }  
 });
 
-partnerIds.forEach(partnerId => {
-  const partnerSocket = connectedUsers.get(partnerId);
+if (userPresence.get(data.userID) === true) {
 
-  if (partnerSocket && partnerSocket.readyState === WebSocket.OPEN) {
-    partnerSocket.send(JSON.stringify({
-      type: "user_online",
-      userId: data.userID
-    }));
-  }
+  partnerIds.forEach(partnerId => {
+    const partnerSocket = connectedUsers.get(partnerId);
 
+    if (partnerSocket && partnerSocket.readyState === WebSocket.OPEN) {
+      partnerSocket.send(JSON.stringify({
+        type: "user_online",
+        userId: data.userID
+      }));
+    }
+  });
 
-  
-});
+}
 
 
 //END show online status
