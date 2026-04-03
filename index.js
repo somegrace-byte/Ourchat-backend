@@ -959,13 +959,12 @@ if (data.type === 'typing' || data.type === 'stop_typing') {
 
   const receiverSocket = connectedUsers.get(data.receiverId);
 
-  if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
-    receiverSocket.send(JSON.stringify({
-      type: data.type,
-      senderId: data.senderId
-    }));
-  }
+  if (!receiverSocket || receiverSocket.readyState !== WebSocket.OPEN) return;
 
+  receiverSocket.send(JSON.stringify({
+    type: data.type,
+    senderId: data.senderId
+  }));
 }
       
 
