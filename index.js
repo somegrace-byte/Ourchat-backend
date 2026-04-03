@@ -952,6 +952,21 @@ if (data.type === 'chat_request_decline') {
   }
 
 }
+
+// ------------------- Typing Indicator -------------------
+
+if (data.type === 'typing' || data.type === 'stop_typing') {
+
+  const receiverSocket = connectedUsers.get(data.receiverId);
+
+  if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+    receiverSocket.send(JSON.stringify({
+      type: data.type,
+      senderId: data.senderId
+    }));
+  }
+
+}
       
 
  //MESSAGE SECTION 
