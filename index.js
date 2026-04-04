@@ -1048,33 +1048,7 @@ try {
 
 }
 
-// ------------------- CLEAR Check LOCALLY (KEEP CONTACT) -------------------
 
-if (data.type === 'clear_chat') {
-
-  try {
-
-    await pool.query(
-      `DELETE FROM messages
-       WHERE (sender_id=$1 AND receiver_id=$2)
-          OR (sender_id=$2 AND receiver_id=$1)`,
-      [data.senderId, data.receiverId]
-    );
-
-    // 🔥 Notify sender only (optional but useful)
-    const senderSocket = connectedUsers.get(data.senderId);
-
-    if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
-      senderSocket.send(JSON.stringify({
-        type: "chat_cleared",
-        receiverId: data.receiverId
-      }));
-    }
-
-  } catch (err) {
-    console.error("Clear chat error:", err);
-  }
-}
 
 // ------------------- CLEAR CHAT FOR EVERYONE -------------------
 
