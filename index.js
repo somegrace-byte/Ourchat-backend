@@ -1048,7 +1048,7 @@ try {
 
 }
 
-// ------------------- CLEAR CHAT (KEEP CONTACT) -------------------
+// ------------------- CLEAR Check LOCALLY (KEEP CONTACT) -------------------
 
 if (data.type === 'clear_chat') {
 
@@ -1073,6 +1073,46 @@ if (data.type === 'clear_chat') {
 
   } catch (err) {
     console.error("Clear chat error:", err);
+  }
+}
+
+// ------------------- CLEAR CHAT FOR EVERYONE -------------------
+
+if (data.type === 'clear_chat_everyone') {
+
+  try {
+
+    const userA = Math.min(data.senderId, data.receiverId);
+    const userB = Math.max(data.senderId, data.receiverId);
+
+    // 🔥 Delete ALL messages between both users
+    await pool.query(
+      `DELETE FROM messages
+       WHERE (sender_id=$1 AND receiver_id=$2)
+          OR (sender_id=$2 AND receiver_id=$1)`,
+      [userA, userB]
+    );
+
+    // 🔔 Notify both users
+    const senderSocket = connectedUsers.get(data.senderId);
+    const receiverSocket = connectedUsers.get(data.receiverId);
+
+    if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+      senderSocket.send(JSON.stringify({
+        type: "chat_cleared_everyone",
+        userId: data.receiverId
+      }));
+    }
+
+    if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+      receiverSocket.send(JSON.stringify({
+        type: "chat_cleared_everyone",
+        userId: data.senderId
+      }));
+    }
+
+  } catch (err) {
+    console.error("Clear chat for everyone error:", err);
   }
 }
       
