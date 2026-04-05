@@ -157,6 +157,13 @@ await pool.query(`
 app.post('/register', async (req, res) => {
   let { username, profile_picture } = req.body;
 
+// 🔥 ADD THESE LINES
+  console.log("=== REGISTER HIT ===");
+  console.log("RAW USERNAME:", username);
+  console.log("BLOCK RESULT:", containsBlockedWords(username));
+
+  
+
   // 1️⃣ Required check
   if (!username || username.trim() === '') {
     return res.status(400).json({ error: 'Username required' });
