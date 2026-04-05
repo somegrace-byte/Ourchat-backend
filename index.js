@@ -16,19 +16,19 @@ const BLOCKED_WORDS = new Set([
 
 function containsBlockedWords(username) {
 
-// Normalize everything
-let clean = username.toLowerCase();
+  // Normalize (remove spaces, symbols etc)
+  let clean = username.toLowerCase().replace(/[^a-z]/g, "");
 
-// Remove all non-letters (spaces, dots, symbols etc)
-clean = clean.replace(/[^a-z]/g, "");
+  // Create compressed version (handles fuuuck → fuck)
+  let compressed = clean.replace(/(.)\1+/g, "$1");
 
-// Collapse repeated letters (fuuuck → fuck)
-clean = clean.replace(/(.)\1+/g, "$1");
+  for (const word of BLOCKED_WORDS) {
+    if (clean.includes(word) || compressed.includes(word)) {
+      return true;
+    }
+  }
 
-for (const word of BLOCKED_WORDS) {
-if (clean.includes(word)) return true;
-}
-return false;
+  return false;
 }
 
 // ------------------- Config -------------------
@@ -152,16 +152,8 @@ await pool.query(`
 // ===================== HTTP ROUTES =====================
 // =======================================================
 
-
-
 app.post('/register', async (req, res) => {
   let { username, profile_picture } = req.body;
-
-// 🔥 ADD THESE LINES
-  console.log("=== REGISTER HIT ===");
-  console.log("RAW USERNAME:", username);
-  console.log("BLOCK RESULT:", containsBlockedWords(username));
-
   
 
   // 1️⃣ Required check
