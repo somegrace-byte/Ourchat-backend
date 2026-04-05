@@ -13,9 +13,9 @@ const BLOCKED_WORDS = new Set([
 
   // --- Sexual / explicit ---
   "penis","vagina","anal","blowjob","handjob","cumshot","deepthroat","porn","xxx",
-  "cumdumpster","cumhole","cumload",
+  "cumdumpster","cumhole","cumload","anus",
   // --- Abuse / offensive ---
-  "asshole","douchebag","motherfucker","pissflaps",
+  "asshole","douchebag","motherfucker","pissflaps","shit",
 
   // --- Slurs ---
   "nigger","faggot","retard",
