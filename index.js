@@ -8,21 +8,11 @@ const WebSocket = require('ws');
 // ------------------- Username Filter -------------------
 
 const BLOCKED_WORDS = new Set([
-  // --- Strong profanity ---
   "fuck","cunt","bitch","dick","cock","pussy","twat","slut","whore","bastard",
-
-  // --- Sexual / explicit ---
   "penis","vagina","anal","blowjob","handjob","cumshot","deepthroat","porn","xxx",
-  "cumdumpster","cumhole","cumload","anus",
-  // --- Abuse / offensive ---
-  "asshole","douchebag","motherfucker","pissflaps","shit",
-
-  // --- Slurs ---
-  "nigger","faggot","retard",
-
-  // --- Violence / extreme ---
+  "asshole","douchebag","motherfucker","nigger","faggot","retard",
   "rapist","rape","killyourself","suicide","murder"
-]);
+].map(w => w.trim().toLowerCase()));
 
 function containsBlockedWords(username) {
 
