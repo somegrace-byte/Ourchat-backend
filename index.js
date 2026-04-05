@@ -16,14 +16,23 @@ const BLOCKED_WORDS = new Set([
 
 function containsBlockedWords(username) {
 
-  // Normalize (remove spaces, symbols etc)
+  // Normalize
   let clean = username.toLowerCase().replace(/[^a-z]/g, "");
 
-  // Create compressed version (handles fuuuck → fuck)
+  // Compress input (fuuuck → fuck)
   let compressed = clean.replace(/(.)\1+/g, "$1");
 
   for (const word of BLOCKED_WORDS) {
-    if (clean.includes(word) || compressed.includes(word)) {
+
+    // Compress blocked word too (nigger → niger)
+    let compressedWord = word.replace(/(.)\1+/g, "$1");
+
+    if (
+      clean.includes(word) ||                // exact match
+      compressed.includes(word) ||           // stretched input
+      clean.includes(compressedWord) ||      // edge case
+      compressed.includes(compressedWord)    // both compressed
+    ) {
       return true;
     }
   }
