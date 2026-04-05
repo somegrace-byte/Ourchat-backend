@@ -5,6 +5,36 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const WebSocket = require('ws');
 
+// ------------------- Username Filter -------------------
+
+const BLOCKED_WORDS = new Set([
+  "fuck",
+  "cunt",
+  "penis",
+  "shit",
+  "bitch",
+  "dick",
+  "slut",
+  "whore"
+]);
+
+function containsBlockedWords(username) {
+
+// Normalize everything
+let clean = username.toLowerCase();
+
+// Remove all non-letters (spaces, dots, symbols etc)
+clean = clean.replace(/[^a-z]/g, "");
+
+// Collapse repeated letters (fuuuck → fuck)
+clean = clean.replace(/(.)\1+/g, "$1");
+
+for (const word of BLOCKED_WORDS) {
+if (clean.includes(word)) return true;
+}
+return false;
+}
+
 // ------------------- Config -------------------
 const PORT = process.env.PORT || 10000;
 const app = express();
@@ -142,7 +172,7 @@ app.post('/register', async (req, res) => {
   // 3️⃣ Length validation (3–20 characters)
   if (username.length < 3 || username.length > 20) {
     return res.status(400).json({
-      error: 'Username must be between 3 and 20 characters'
+      error: 'Invalid username'
     });
   }
 
@@ -150,8 +180,15 @@ app.post('/register', async (req, res) => {
   const validPattern = /^[A-Za-z ]+$/;
   if (!validPattern.test(username)) {
     return res.status(400).json({
-      error: 'Username can contain letters and spaces only'
+      error: 'Invalid username'
     });
+  }
+
+  // 5️⃣ Block explicit/inappropriate names (STRICT)
+  if (containsBlockedWords(username)) {
+  return res.status(400).json({
+  error: 'Invalid username'
+  });
   }
 
   // 5️⃣ Normalize: Capitalize each word
