@@ -63,11 +63,17 @@ const userPresence = new Map();
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        profile_picture TEXT
-      )
+    CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    profile_picture TEXT,
+    profile_visible BOOLEAN DEFAULT true
+    )
+    `);
+
+    await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS profile_visible BOOLEAN DEFAULT true
     `);
 
     await pool.query(`
@@ -318,15 +324,17 @@ app.get('/users', async (req, res) => {
 
     if (searchQuery) {
       result = await pool.query(
-        `SELECT id, username, profile_picture
-         FROM users
-         WHERE LOWER(username) = LOWER($1)`,
-        [searchQuery]
-      );
+     `SELECT id, username, profile_picture
+      FROM users
+      WHERE LOWER(username) = LOWER($1)
+      AND profile_visible = true`,
+     [searchQuery]
+     );
     } else {
       result = await pool.query(
         `SELECT id, username, profile_picture
          FROM users
+         WHERE profile_visible = true
          ORDER BY username ASC`
       );
     }
@@ -735,6 +743,24 @@ if (data.type === 'user_offline') {
       }));
     }
   });
+}
+
+// ------------------- PROFILE VISIBILITY -------------------
+
+if (data.type === 'profile_visibility') {
+
+  try {
+
+    await pool.query(
+      `UPDATE users
+       SET profile_visible = $1
+       WHERE id = $2`,
+      [data.visible, data.userId]
+    );
+
+  } catch (err) {
+    console.error("Profile visibility update error:", err);
+  }
 }
       
 // ------------------- Check Online Status -------------------
