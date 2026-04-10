@@ -7,6 +7,25 @@ const WebSocket = require('ws');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+//JWT Token authentication 
+const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
+
+//Authentication token
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+
+    req.user = user;
+    next();
+  });
+}
+
 // ------------------- Username Filter -------------------
 
 const BLOCKED_WORDS = new Set([
@@ -428,7 +447,7 @@ app.get('/user/:id/avatar', async (req, res) => {
 });
 
 // ------------------- Get Conversation -------------------
-app.get('/messages/:user1/:user2', async (req, res) => {
+app.get('/messages/:user1/:user2', authenticateToken, async (req, res) => {
   try {
 
     const result = await pool.query(
