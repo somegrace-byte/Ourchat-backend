@@ -774,7 +774,7 @@ if (userPresence.get(data.userID) === true) {
           }));
          }
         });     
-      
+      }
 
 //Added background offline status
       
