@@ -695,9 +695,32 @@ wss.on('connection', (ws) => {
 
       if (data.type === 'register') {
 
-        ws.userID = data.userID;
-        connectedUsers.set(data.userID, ws);
-        userPresence.set(data.userID, false);
+        const token = data.token;
+
+if (!token) {
+  ws.close();
+  return;
+}
+
+jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+
+  if (err) {
+    ws.close();
+    return;
+  }
+
+  const userId = decoded.userId;
+
+  if (userId !== data.userID) {
+    ws.close();
+    return;
+  }
+
+  ws.userID = userId;
+  connectedUsers.set(userId, ws);
+  userPresence.set(userId, false);
+
+        
    // 🔥 Notify only users who have a conversation with this user
    const convoResult = await pool.query(
   `SELECT user1_id, user2_id
@@ -728,7 +751,7 @@ if (userPresence.get(data.userID) === true) {
       }));
     }
   });
-
+  
 }
 
 
@@ -1111,7 +1134,9 @@ if (data.type === 'typing' || data.type === 'stop_typing') {
     senderId: data.senderId
   }));
 }
-      
+
+});
+}
 
  //MESSAGE SECTION 
 
