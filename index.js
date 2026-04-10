@@ -632,6 +632,15 @@ app.get('/checkMessages', async (req, res) => {
 
 // ------------------- Delete User -------------------
 app.delete('/users/:id', authenticateToken, async (req, res) => {
+
+const userIdFromToken = req.user.userId;
+const userIdFromParams = parseInt(req.params.id);
+
+// 🚨 BLOCK if user tries to delete someone else
+if (userIdFromToken !== userIdFromParams) {
+  return res.status(403).json({ error: 'Unauthorized' });
+}
+  
   try {
 
     await pool.query(
