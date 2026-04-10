@@ -772,8 +772,9 @@ if (userPresence.get(data.userID) === true) {
             senderId: msg.sender_id,
             receiverId: msg.receiver_id
           }));
-        }
-      }
+         }
+        });     
+      
 
 //Added background offline status
       
@@ -1134,8 +1135,6 @@ if (data.type === 'typing' || data.type === 'stop_typing') {
     senderId: data.senderId
   }));
 }
-
-});
 
 
  //MESSAGE SECTION 
