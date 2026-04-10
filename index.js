@@ -266,8 +266,19 @@ const user = await pool.query(
   [username, profile_picture || null, hashedPassword]
 );
 
-    return res.status(201).json({ user: user.rows[0] });
-
+  //Send token on register 
+  const token = jwt.sign(
+  { userId: user.rows[0].id },
+  JWT_SECRET,
+  { expiresIn: "7d" }
+  );
+  //End send token
+    
+  return res.status(201).json({
+  user: user.rows[0],
+  token: token
+  });
+    
   } catch (err) {
     console.error('Register error:', err);
     return res.status(500).json({ error: 'Server error' });
