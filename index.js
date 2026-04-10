@@ -1136,7 +1136,7 @@ if (data.type === 'typing' || data.type === 'stop_typing') {
 }
 
 });
-}
+
 
  //MESSAGE SECTION 
 
