@@ -448,7 +448,7 @@ app.get('/user/:id/avatar', async (req, res) => {
 
 // ------------------- Get Conversation -------------------
 app.get('/messages/:user1/:user2', authenticateToken, async (req, res) => {
-  try {
+try {
 
     const result = await pool.query(
       `SELECT * FROM messages
