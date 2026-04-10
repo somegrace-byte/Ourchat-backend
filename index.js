@@ -447,7 +447,7 @@ app.get('/user/:id/avatar', async (req, res) => {
 });
 
 // ------------------- Get Conversation -------------------
-app.get('/messages/:user1/:user2', authenticateToken, async (req, res) => {
+app.get('/messages/:user1/:user2', async (req, res) => {
 
   try {
 
