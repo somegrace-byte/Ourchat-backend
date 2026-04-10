@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const WebSocket = require('ws');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 
 //JWT Token authentication 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -68,6 +69,14 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/uploads', express.static('uploads'));
+
+// 🔒 LOGIN LIMITER
+const loginLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many login attempts. Try again in a minute." }
+});
+
 
 // ------------------- PostgreSQL -------------------
 const pool = new Pool({
@@ -266,7 +275,7 @@ const user = await pool.query(
 });
 
 //Login 
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
