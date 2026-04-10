@@ -631,7 +631,7 @@ app.get('/checkMessages', async (req, res) => {
 
 
 // ------------------- Delete User -------------------
-app.delete('/users/:id', async (req, res) => {
+app.delete('/users/:id', authenticateToken, async (req, res) => {
   try {
 
     await pool.query(
