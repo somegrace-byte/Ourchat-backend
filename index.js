@@ -46,6 +46,8 @@ function containsBlockedWords(username) {
 const PORT = process.env.PORT || 10000;
 const app = express();
 
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+
 app.use(cors());
 app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/uploads', express.static('uploads'));
