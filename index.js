@@ -8,8 +8,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 //JWT Token authentication 
-const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
-
+const JWT_SECRET = process.env.JWT_SECRET;
 //Authentication token
 
 function authenticateToken(req, res, next) {
