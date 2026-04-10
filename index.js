@@ -4,6 +4,8 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Pool } = require('pg');
 const WebSocket = require('ws');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 // ------------------- Username Filter -------------------
 
