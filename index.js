@@ -170,7 +170,7 @@ await pool.query(`
 // =======================================================
 
 app.post('/register', async (req, res) => {
-  let { username, profile_picture } = req.body;
+  let { username, password, profile_picture } = req.body;
   
 
   // 1️⃣ Required check
@@ -224,11 +224,19 @@ app.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Username exists' });
     }
 
-    // 7️⃣ Insert new user
-    const user = await pool.query(
-      'INSERT INTO users (username, profile_picture) VALUES ($1,$2) RETURNING id, username',
-      [username, profile_picture || null]
-    );
+// 🔐 require password
+if (!password) {
+  return res.status(400).json({ error: 'Password required' });
+}
+
+// 🔐 hash password
+const hashedPassword = await bcrypt.hash(password, 10);
+
+// 7️⃣ Insert new user
+const user = await pool.query(
+  'INSERT INTO users (username, profile_picture, password_hash) VALUES ($1,$2,$3) RETURNING id, username',
+  [username, profile_picture || null, hashedPassword]
+);
 
     return res.status(201).json({ user: user.rows[0] });
 
