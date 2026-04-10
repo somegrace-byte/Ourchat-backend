@@ -246,6 +246,47 @@ const user = await pool.query(
   }
 });
 
+//Login 
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  try {
+    // Find user
+    const result = await pool.query(
+      'SELECT id, username, password_hash FROM users WHERE LOWER(username)=LOWER($1)',
+      [username]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = result.rows[0];
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Success (no JWT yet)
+    res.json({
+      userId: user.id,
+      username: user.username
+    });
+
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+//END Login
 
 app.get('/chat-requests/:userId', async (req, res) => {
 
