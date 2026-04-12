@@ -77,6 +77,13 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts. Try again in a minute." }
 });
 
+//Registration limiter 
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: { error: "Too many accounts created. Try again later." }
+});
+
 
 // ------------------- PostgreSQL -------------------
 const pool = new Pool({
@@ -197,7 +204,7 @@ await pool.query(`
 // ===================== HTTP ROUTES =====================
 // =======================================================
 
-app.post('/register', async (req, res) => {
+app.post('/register', registerLimiter, async (req, res) => {
   let { username, password, profile_picture } = req.body;
   
 
