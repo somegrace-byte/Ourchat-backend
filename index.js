@@ -77,13 +77,19 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts. Try again in a minute." }
 });
 
-//Registration limiter 
+//Registration Failed login limiter 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3,
+  max: 10,
   message: { error: "Too many accounts created. Try again later." }
 });
 
+//Registration sucess limiter 
+const registerSuccessLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: { error: "Too many registration attempts. Try again later." }
+});
 
 // ------------------- PostgreSQL -------------------
 const pool = new Pool({
@@ -94,7 +100,7 @@ const pool = new Pool({
 // ------------------- Track Connected Users -------------------
 const connectedUsers = new Map();
 const userPresence = new Map(); 
-
+const registerSuccessMap = new Map();
 // ------------------- Tables Setup -------------------
 (async () => {
   try {
@@ -205,6 +211,30 @@ await pool.query(`
 // =======================================================
 
 app.post('/register', registerLimiter, async (req, res) => {
+
+//Max 3 registrations per hour
+const ip = req.ip;
+const now = Date.now();
+
+const record = registerSuccessMap.get(ip);
+
+if (record) {
+  const { count, firstTime } = record;
+
+  if (now - firstTime < 60 * 60 * 1000) {
+    if (count >= 3) {
+      return res.status(429).json({
+        error: "Too many accounts created. Try again later."
+      });
+    }
+  } else {
+    registerSuccessMap.set(ip, { count: 0, firstTime: now });
+  }
+} else {
+  registerSuccessMap.set(ip, { count: 0, firstTime: now });
+}
+  //End max 3 registrations 
+  
   let { username, password, profile_picture } = req.body;
   
 
@@ -280,6 +310,11 @@ const user = await pool.query(
   { expiresIn: "7d" }
   );
   //End send token
+
+   const successRecord = registerSuccessMap.get(ip);
+   if (successRecord) {
+  successRecord.count += 1;
+} 
     
   return res.status(201).json({
   user: user.rows[0],
