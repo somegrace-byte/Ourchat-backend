@@ -453,6 +453,32 @@ app.post('/upload-image', async (req, res) => {
   }
 });
 
+//Username avaliablity check 
+app.get('/check-username', async (req, res) => {
+  const username = req.query.username;
+
+  if (!username || username.trim() === '') {
+    return res.json({ available: false });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT 1 FROM users WHERE LOWER(username) = LOWER($1)',
+      [username.trim()]
+    );
+
+    if (result.rows.length > 0) {
+      return res.json({ available: false });
+    }
+
+    res.json({ available: true });
+
+  } catch (err) {
+    console.error("Username check error:", err);
+    res.status(500).json({ available: false });
+  }
+});
+
 
 // ------------------- Get Users -------------------
 app.get('/users', async (req, res) => {
