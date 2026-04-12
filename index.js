@@ -455,16 +455,33 @@ app.post('/upload-image', async (req, res) => {
 
 //Username avaliablity check 
 app.get('/check-username', async (req, res) => {
-  const username = req.query.username;
+  let username = req.query.username;
 
   if (!username || username.trim() === '') {
     return res.json({ available: false });
   }
 
+  username = username.trim().replace(/\s+/g, ' ');
+
+  // Length check
+  if (username.length < 3 || username.length > 20) {
+    return res.json({ available: false });
+  }
+
+  // Letters + spaces only
+  if (!/^[A-Za-z ]+$/.test(username)) {
+    return res.json({ available: false });
+  }
+
+  // Blocked words check
+  if (containsBlockedWords(username)) {
+    return res.json({ available: false });
+  }
+
   try {
     const result = await pool.query(
-      'SELECT 1 FROM users WHERE LOWER(username) = LOWER($1)',
-      [username.trim()]
+      'SELECT 1 FROM users WHERE LOWER(username)=LOWER($1)',
+      [username]
     );
 
     if (result.rows.length > 0) {
