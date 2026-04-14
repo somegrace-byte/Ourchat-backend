@@ -1357,6 +1357,17 @@ if (data.type === 'edit_message') {
 
     console.log("Message edited:", data.messageId);
 
+    // 🔥 ADD THIS PART (broadcast)
+    const receiverSocket = connectedUsers.get(data.receiverId);
+
+    if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+      receiverSocket.send(JSON.stringify({
+        type: "message_edited",
+        messageId: data.messageId,
+        newText: data.newText
+      }));
+    }
+
   } catch (err) {
     console.error("Edit message error:", err);
   }
