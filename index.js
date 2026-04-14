@@ -1331,6 +1331,36 @@ try {
 
 }
 
+// ------------------- EDIT MESSAGE -------------------
+if (data.type === 'edit_message') {
+  try {
+
+    // 🔒 Ensure message exists and belongs to sender
+    const check = await pool.query(
+      `SELECT sender_id FROM messages WHERE id = $1`,
+      [data.messageId]
+    );
+
+    if (check.rows.length === 0) return;
+
+    if (check.rows[0].sender_id !== data.senderId) return;
+
+    // ✅ Update message
+    await pool.query(
+      `UPDATE messages
+       SET text = $1,
+           updated_at = NOW(),
+           is_edited = TRUE
+       WHERE id = $2`,
+      [data.newText, data.messageId]
+    );
+
+    console.log("Message edited:", data.messageId);
+
+  } catch (err) {
+    console.error("Edit message error:", err);
+  }
+}
 
 
 // ------------------- CLEAR CHAT FOR EVERYONE -------------------
