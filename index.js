@@ -833,51 +833,6 @@ jwt.verify(token, JWT_SECRET, async (err, decoded) => {
   ws.userID = userId;
   connectedUsers.set(userId, ws);
 
-//Check chat exists
-
-const existing = await pool.query(
-  `SELECT user1_id, user2_id
-   FROM conversations
-   WHERE user1_id = $1 OR user2_id = $1`,
-  [userId]
-);
-
-const valid = new Set();
-
-existing.rows.forEach(row => {
-  if (row.user1_id === userId) {
-    valid.add(row.user2_id);
-  } else {
-    valid.add(row.user1_id);
-  }
-});
-
-const history = await pool.query(
-  `SELECT DISTINCT
-     CASE
-       WHEN sender_id = $1 THEN receiver_id
-       ELSE sender_id
-     END AS other_user_id
-   FROM messages
-   WHERE sender_id = $1 OR receiver_id = $1`,
-  [userId]
-);
-
-history.rows.forEach(row => {
-  const otherUserId = row.other_user_id;
-
-  if (!valid.has(otherUserId)) {
-    ws.send(JSON.stringify({
-      type: "chat_closed",
-      receiverId: otherUserId
-    }));
-  }
-});
-
-//End check chat exist 
-
-
-
   
   userPresence.set(userId, false);
 
