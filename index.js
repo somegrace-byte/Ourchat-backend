@@ -376,8 +376,7 @@ app.post('/login', loginLimiter, async (req, res) => {
 
 //END Login
 
-app.get('/chat-requests/:userId', async (req, res) => {
-
+app.get('/chat-requests', authenticateToken, async (req, res) => {
   try {
 
     const result = await pool.query(
@@ -387,7 +386,7 @@ app.get('/chat-requests/:userId', async (req, res) => {
        WHERE cr.to_user_id = $1
        AND cr.status = 'pending'
        ORDER BY cr.created_at DESC`,
-      [req.params.userId]
+      [req.user.userId]
     );
 
     res.json(result.rows);
