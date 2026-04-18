@@ -1048,7 +1048,7 @@ const blockedCheck = await pool.query(
   `SELECT 1
    FROM blocked_users
    WHERE blocker_id=$1 AND blocked_id=$2`,
-  [data.toUserId, data.fromUserId]
+  [data.toUserId, ws.userID]
 );
 
 if (blockedCheck.rows.length > 0) {
@@ -1061,7 +1061,7 @@ if (blockedCheck.rows.length > 0) {
     `SELECT status FROM chat_requests
      WHERE (from_user_id=$1 AND to_user_id=$2)
         OR (from_user_id=$2 AND to_user_id=$1)`,
-    [data.fromUserId, data.toUserId]
+    [ws.userID, data.toUserId]
   );
 
   if (existing.rows.length > 0) {
@@ -1089,13 +1089,13 @@ if (blockedCheck.rows.length > 0) {
   await pool.query(
     `INSERT INTO chat_requests (from_user_id, to_user_id)
      VALUES ($1,$2)`,
-    [data.fromUserId, data.toUserId]
+    [ws.userID, data.toUserId]
   );
 
   // Get sender username from database
 const senderResult = await pool.query(
   `SELECT username FROM users WHERE id=$1`,
-  [data.fromUserId]
+  [ws.userID]
 );
 
 const senderUsername =
