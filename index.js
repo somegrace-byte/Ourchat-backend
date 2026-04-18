@@ -507,22 +507,22 @@ app.get('/users', async (req, res) => {
 
     if (searchQuery) {
       result = await pool.query(
-     `SELECT id, username, profile_picture
-      FROM users u
-      WHERE LOWER(u.username) = LOWER($1)
-AND (
-  u.profile_visible = true
-  OR EXISTS (
-    SELECT 1 FROM conversations c
-    WHERE (
-      (c.user1_id = $2 AND c.user2_id = u.id)
-      OR
-      (c.user2_id = $2 AND c.user1_id = u.id)
-    )
-  )
-),
-     [searchQuery, currentUserId]
-     );
+  `SELECT id, username, profile_picture
+   FROM users u
+   WHERE LOWER(u.username) = LOWER($1)
+   AND (
+     u.profile_visible = true
+     OR EXISTS (
+       SELECT 1 FROM conversations c
+       WHERE (
+         (c.user1_id = $2 AND c.user2_id = u.id)
+         OR
+         (c.user2_id = $2 AND c.user1_id = u.id)
+       )
+     )
+   )`,
+  [searchQuery, currentUserId]
+);
     } else {
       result = await pool.query(
         `SELECT id, username, profile_picture
