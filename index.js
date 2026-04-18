@@ -1108,7 +1108,7 @@ const receiverSocket = connectedUsers.get(data.toUserId);
 if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
   receiverSocket.send(JSON.stringify({
     type: "chat_request_received",
-    fromUserId: data.fromUserId,
+    fromUserId: ws.userID,
     username: senderUsername
   }));
 }
