@@ -520,7 +520,7 @@ AND (
       (c.user2_id = $2 AND c.user1_id = u.id)
     )
   )
-)
+),
      [searchQuery, currentUserId]
      );
     } else {
