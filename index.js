@@ -600,9 +600,11 @@ app.get('/conversations/:userId', async (req, res) => {
          u.username
        FROM conversations c
        JOIN users u 
-         ON u.id = c.user1_id OR u.id = c.user2_id
-       WHERE (c.user1_id = $1 OR c.user2_id = $1)
-       AND u.id != $1`,
+         ON u.id = CASE 
+           WHEN c.user1_id = $1 THEN c.user2_id
+           ELSE c.user1_id
+         END
+       WHERE c.user1_id = $1 OR c.user2_id = $1`,
       [req.params.userId]
     );
 
