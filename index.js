@@ -87,7 +87,7 @@ const registerLimiter = rateLimit({
 //Registration sucess limiter 
 const registerSuccessLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
+  max: 50,
   message: { error: "Too many registration attempts. Try again later." }
 });
 
