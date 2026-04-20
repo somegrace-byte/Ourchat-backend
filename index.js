@@ -756,6 +756,12 @@ if (userIdFromToken !== userIdFromParams) {
       [req.params.id]
     );
 
+    await pool.query(
+  `DELETE FROM chat_requests
+   WHERE from_user_id=$1 OR to_user_id=$1`,
+  [req.params.id]
+  );
+
     const result = await pool.query(
       'DELETE FROM users WHERE id=$1 RETURNING id',
       [req.params.id]
