@@ -1059,33 +1059,29 @@ if (blockedCheck.rows.length > 0) {
 
   //END BLOCK CHAT REQUEST
         
-  const existing = await pool.query(
-    `SELECT status FROM chat_requests
-     WHERE (from_user_id=$1 AND to_user_id=$2)
-        OR (from_user_id=$2 AND to_user_id=$1)`,
-    [ws.userID, data.toUserId]
-  );
+// 🔥 Check if an active conversation already exists
+const userA = Math.min(ws.userID, data.toUserId);
+const userB = Math.max(ws.userID, data.toUserId);
 
-  if (existing.rows.length > 0) {
+const convoCheck = await pool.query(
+  `SELECT 1 FROM conversations
+   WHERE user1_id=$1 AND user2_id=$2`,
+  [userA, userB]
+);
 
-    const status = existing.rows[0].status;
+if (convoCheck.rows.length > 0) {
 
-    // If already accepted → tell sender to open chat
-    if (status === 'accepted') {
+  const senderSocket = connectedUsers.get(data.fromUserId);
 
-      const senderSocket = connectedUsers.get(data.fromUserId);
-
-      if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
-        senderSocket.send(JSON.stringify({
-          type: "chat_already_active",
-          otherUserId: data.toUserId
-        }));
-      }
-    }
-
-    // If pending → do nothing
-    return;
+  if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+    senderSocket.send(JSON.stringify({
+      type: "chat_already_active",
+      otherUserId: data.toUserId
+    }));
   }
+
+  return;
+}
 
   // No existing request → create new one
   await pool.query(
