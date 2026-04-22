@@ -422,6 +422,31 @@ app.post('/upload-avatar', async (req, res) => {
   }
 });
 
+//UPLOAD Cover Image
+app.post('/upload-cover', async (req, res) => {
+  const { userId, image } = req.body;
+
+  if (!userId || !image)
+    return res.status(400).json({ error: 'Missing userId or image' });
+
+  try {
+
+    const result = await pool.query(
+      'UPDATE users SET cover_image_base64 = $1 WHERE id = $2 RETURNING id',
+      [image, userId]
+    );
+
+    if (result.rowCount === 0)
+      return res.status(404).json({ error: 'User not found' });
+
+    res.json({ message: 'Cover updated successfully' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 //UPLOAD IMAGE
 const fs = require('fs');
