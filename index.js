@@ -447,6 +447,28 @@ app.post('/upload-cover', async (req, res) => {
   }
 });
 
+//GET COVER IMAGE 
+app.get('/user/:id/cover', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT cover_image_base64 FROM users WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      image: result.rows[0].cover_image_base64
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 //UPLOAD IMAGE
 const fs = require('fs');
