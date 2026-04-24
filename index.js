@@ -1457,9 +1457,19 @@ try {
     // Insert message (SAFE VERSION)
   await pool.query(
     `
-    INSERT INTO messages (id, text, sender_id, receiver_id, delivered, type, image_path)
-    VALUES ($1, $2, $3, $4, false, $5, $6)
-    ON CONFLICT (id) DO NOTHING
+    INSERT INTO messages (
+  id,
+  text,
+  sender_id,
+  receiver_id,
+  delivered,
+  type,
+  image_path,
+  aes_key,
+  iv
+  )
+  VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8)
+  ON CONFLICT (id) DO NOTHING
     `,
   [
   data.messageId,
@@ -1467,7 +1477,9 @@ try {
   data.senderId,
   data.receiverId,
   data.messageType || 'text',
-  data.messageType === 'image' ? data.image : null
+  data.messageType === 'image' ? data.image : null,
+  data.aesKey || null,
+  data.iv || null
   ]
   );
 
