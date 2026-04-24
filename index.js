@@ -1073,6 +1073,25 @@ if (data.type === 'user_online') {
 }
 
 
+if (data.type === 'public_key') {
+  try {
+    const { userId, publicKey } = data;
+
+    if (!userId || !publicKey) return;
+
+    await pool.query(
+      'UPDATE users SET public_key = $1 WHERE id = $2',
+      [publicKey, userId]
+    );
+
+    console.log("✅ Public key saved for user:", userId);
+
+  } catch (err) {
+    console.error("❌ Public key save error:", err);
+  }
+}
+      
+
 if (data.type === 'user_offline') {
 
   userPresence.set(data.userId, false);
