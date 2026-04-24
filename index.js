@@ -1190,11 +1190,24 @@ if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
 const userA = Math.min(data.fromUserId, data.toUserId);
 const userB = Math.max(data.fromUserId, data.toUserId);
 
+const conversationKey = generateConversationKey();
+
 await pool.query(
-  `INSERT INTO conversations (user1_id, user2_id)
-   VALUES ($1, $2)
+  `INSERT INTO conversations (
+     user1_id,
+     user2_id,
+     is_encrypted,
+     encrypted_key_for_user1,
+     encrypted_key_for_user2
+   )
+   VALUES ($1, $2, true, $3, $4)
    ON CONFLICT DO NOTHING`,
-  [userA, userB]
+  [
+    userA,
+    userB,
+    conversationKey,
+    conversationKey
+  ]
 );
 
     
