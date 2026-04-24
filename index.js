@@ -1275,6 +1275,16 @@ await pool.query(`
       [data.fromUserId, data.toUserId]
     );
 
+    const keyResult = await pool.query(
+  `SELECT id, public_key FROM users WHERE id=$1 OR id=$2`,
+  [data.fromUserId, data.toUserId]
+);
+
+const keyMap = {};
+keyResult.rows.forEach(u => {
+  keyMap[u.id] = u.public_key;
+});
+
     const userMap = {};
     users.rows.forEach(u => {
       userMap[u.id] = u.username;
@@ -1285,18 +1295,20 @@ await pool.query(`
 
     if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
       senderSocket.send(JSON.stringify({
-        type: "chat_request_accepted",
-        otherUserId: data.toUserId,
-        username: userMap[data.toUserId]
-      }));
+  type: "chat_request_accepted",
+  otherUserId: data.toUserId,
+  username: userMap[data.toUserId],
+  publicKey: keyMap[data.toUserId] // 🔐 ADD
+}));
     }
 
     if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
       receiverSocket.send(JSON.stringify({
-        type: "chat_request_accepted",
-        otherUserId: data.fromUserId,
-        username: userMap[data.fromUserId]
-      }));
+  type: "chat_request_accepted",
+  otherUserId: data.fromUserId,
+  username: userMap[data.fromUserId],
+  publicKey: keyMap[data.fromUserId] // 🔐 ADD
+}));
     }
 
   } catch (err) {
