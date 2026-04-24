@@ -7,7 +7,7 @@ const WebSocket = require('ws');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const crypto = require('crypto');
+
 
 //JWT Token authentication 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -375,10 +375,7 @@ app.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-//CRYPTO
-function generateConversationKey() {
-return crypto.randomBytes(32).toString('base64');
-}
+
 
 //CHAT REQUESTS 
 app.get('/chat-requests', authenticateToken, async (req, res) => {
@@ -1190,25 +1187,15 @@ if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
 const userA = Math.min(data.fromUserId, data.toUserId);
 const userB = Math.max(data.fromUserId, data.toUserId);
 
-const conversationKey = generateConversationKey();
-
-await pool.query(
-  `INSERT INTO conversations (
-     user1_id,
-     user2_id,
-     is_encrypted,
-     encrypted_key_for_user1,
-     encrypted_key_for_user2
-   )
-   VALUES ($1, $2, true, $3, $4)
-   ON CONFLICT DO NOTHING`,
-  [
-    userA,
-    userB,
-    conversationKey,
-    conversationKey
-  ]
-);
+await pool.query(`
+  INSERT INTO conversations (
+    user1_id,
+    user2_id,
+    is_encrypted
+  )
+  VALUES ($1, $2, true)
+  ON CONFLICT DO NOTHING
+`, [userA, userB]);
 
     
     const users = await pool.query(
