@@ -677,8 +677,10 @@ app.get('/messages/:user1/:user2', authenticateToken, async (req, res) => {
     text: m.text,
     sender_id: m.sender_id,
     receiver_id: m.receiver_id,
-    image: m.image_path,   // 🔥 ADD THIS
-    type: m.type,          // 🔥 ADD THIS
+    image: m.image_path,   
+    type: m.type,          
+    aesKey: m.aes_key,   
+    iv: m.iv,    
     timestamp: new Date(m.created_at).getTime()
   }))
 );
@@ -1011,7 +1013,7 @@ if (userPresence.get(data.userID) === true) {
 }
 
 
-//END show online status
+
         
         const undelivered = await pool.query(
           `SELECT * FROM messages
@@ -1026,7 +1028,9 @@ if (userPresence.get(data.userID) === true) {
             messageId: msg.id,
             text: msg.text,
             senderId: msg.sender_id,
-            receiverId: msg.receiver_id
+            receiverId: msg.receiver_id,
+            aesKey: msg.aes_key,   
+          iv: msg.iv             
           }));
          }
         });     
