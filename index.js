@@ -399,6 +399,29 @@ app.get('/chat-requests', authenticateToken, async (req, res) => {
 });
 
 
+//PUBLIC KEY
+
+app.post('/public-key', authenticateToken, async (req, res) => {
+  const { publicKey } = req.body;
+
+  if (!publicKey) {
+    return res.status(400).json({ error: 'Public key required' });
+  }
+
+  try {
+    await pool.query(
+      'UPDATE users SET public_key = $1 WHERE id = $2',
+      [publicKey, req.user.userId]
+    );
+
+    res.json({ message: 'Public key saved' });
+
+  } catch (err) {
+    console.error("Save public key error:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ------------------- Upload Avatar -------------------
 app.post('/upload-avatar', async (req, res) => {
   const { userId, image } = req.body;
@@ -635,6 +658,29 @@ app.get('/messages/:user1/:user2', authenticateToken, async (req, res) => {
     
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+//GET PUBLIC KEY
+
+app.get('/public-key/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT public_key FROM users WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      publicKey: result.rows[0].public_key
+    });
+
+  } catch (err) {
+    console.error("Get public key error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
