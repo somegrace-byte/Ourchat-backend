@@ -422,6 +422,33 @@ app.post('/public-key', authenticateToken, async (req, res) => {
   }
 });
 
+// ------------------- SAVE CONVERSATION KEYS -------------------
+app.post('/conversation-keys', authenticateToken, async (req, res) => {
+  const { user1Id, user2Id, keyForUser1, keyForUser2 } = req.body;
+
+  if (!user1Id || !user2Id || !keyForUser1 || !keyForUser2) {
+    return res.status(400).json({ error: 'Missing data' });
+  }
+
+  try {
+    const userA = Math.min(user1Id, user2Id);
+    const userB = Math.max(user1Id, user2Id);
+
+    await pool.query(`
+      UPDATE conversations
+      SET encrypted_key_for_user1 = $1,
+          encrypted_key_for_user2 = $2
+      WHERE user1_id = $3 AND user2_id = $4
+    `, [keyForUser1, keyForUser2, userA, userB]);
+
+    res.json({ message: 'Keys saved' });
+
+  } catch (err) {
+    console.error("Conversation key save error:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ------------------- Upload Avatar -------------------
 app.post('/upload-avatar', async (req, res) => {
   const { userId, image } = req.body;
@@ -1236,10 +1263,9 @@ const userB = Math.max(data.fromUserId, data.toUserId);
 await pool.query(`
   INSERT INTO conversations (
     user1_id,
-    user2_id,
-    is_encrypted
+    user2_id
   )
-  VALUES ($1, $2, true)
+  VALUES ($1, $2)
   ON CONFLICT DO NOTHING
 `, [userA, userB]);
 
