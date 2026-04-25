@@ -1091,10 +1091,11 @@ if (data.type === 'get_public_key') {
 
 if (data.type === 'public_key') {
   try {
-    const { userId, publicKey } = data;
+    const { userId, publicKey, targetUserId } = data;
 
-    if (!userId || !publicKey) return;
+    if (!userId || !publicKey || !targetUserId) return;
 
+    // ✅ Save to DB
     await pool.query(
       'UPDATE users SET public_key = $1 WHERE id = $2',
       [publicKey, userId]
@@ -1102,10 +1103,22 @@ if (data.type === 'public_key') {
 
     console.log("✅ Public key saved for user:", userId);
 
+    // 🔥 SEND KEY BACK TO REQUESTER
+    const targetSocket = connectedUsers.get(targetUserId);
+
+    if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+      targetSocket.send(JSON.stringify({
+        type: "public_key",
+        userId: userId,
+        publicKey: publicKey
+      }));
+    }
+
   } catch (err) {
-    console.error("❌ Public key save error:", err);
+    console.error("❌ Public key error:", err);
   }
 }
+
 
 if (data.type === 'aes_key') {
   const receiverSocket = connectedUsers.get(data.receiverId);
