@@ -1072,6 +1072,22 @@ if (data.type === 'user_online') {
   });
 }
 
+//GET PUBLIC KEY
+if (data.type === 'get_public_key') {
+
+  const targetSocket = connectedUsers.get(data.receiverId);
+
+  if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+
+    targetSocket.send(JSON.stringify({
+      type: "get_public_key",
+      fromUserId: ws.userID
+    }));
+
+  }
+
+}
+
 
 if (data.type === 'public_key') {
   try {
