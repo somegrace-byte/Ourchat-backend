@@ -1106,6 +1106,13 @@ if (data.type === 'public_key') {
     console.error("❌ Public key save error:", err);
   }
 }
+
+if (data.type === 'aes_key') {
+  const receiverSocket = connectedUsers.get(data.receiverId);
+  if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+    receiverSocket.send(JSON.stringify(data));
+  }
+}
       
 
 if (data.type === 'user_offline') {
