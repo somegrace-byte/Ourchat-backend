@@ -1075,17 +1075,18 @@ if (data.type === 'user_online') {
 //GET PUBLIC KEY
 if (data.type === 'get_public_key') {
 
-  const targetSocket = connectedUsers.get(data.receiverId);
+  const result = await pool.query(
+    "SELECT public_key FROM users WHERE id = $1",
+    [data.receiverId]
+  );
 
-  if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
-
-    targetSocket.send(JSON.stringify({
-      type: "get_public_key",
-      fromUserId: ws.userID
+  if (result.rows.length > 0) {
+    ws.send(JSON.stringify({
+      type: "public_key",
+      userId: data.receiverId,
+      publicKey: result.rows[0].public_key
     }));
-
   }
-
 }
 
 
