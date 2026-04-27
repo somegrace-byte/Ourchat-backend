@@ -679,7 +679,7 @@ app.get('/messages/:user1/:user2', authenticateToken, async (req, res) => {
     receiver_id: m.receiver_id,
     image: m.image_path,   
     type: m.type,          
-    aesKey: m.aes_key,   
+    encryptedAES: m.aes_key,   
     iv: m.iv,    
     timestamp: new Date(m.created_at).getTime()
   }))
@@ -783,7 +783,7 @@ app.get('/checkMessages', async (req, res) => {
 
     // ------------------- CHECK MESSAGES -------------------
     const messageResult = await pool.query(
-      `SELECT text, sender_id, id, created_at
+      `SELECT text, sender_id, id, created_at, aes_key
        FROM messages
        WHERE receiver_id = $1
        AND delivered = false
@@ -816,6 +816,7 @@ app.get('/checkMessages', async (req, res) => {
         senderId: msg.sender_id,
         message: msg.text,
         messageId: msg.id,
+        encryptedAES: msg.aes_key,
         timestamp: new Date(msg.created_at).getTime()
       });
     }
