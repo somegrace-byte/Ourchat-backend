@@ -1541,7 +1541,7 @@ try {
   data.receiverId,
   data.messageType || 'text',
   data.messageType === 'image' ? data.image : null,
-  data.aesKey || null,
+  data.encryptedAES || data.aesKey || null,
   data.iv || null
   ]
   );
